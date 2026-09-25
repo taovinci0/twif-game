@@ -4,13 +4,13 @@ Everything that can be prepared locally is prepared. Four steps need you.
 
 ## 1. Create the public repo  (you — `gh` is not installed)
 
-On github.com, create a **public, empty** repo named `twif-subnet-one`
+On github.com, create a **public, empty** repo named `twif-game`
 (no README, no .gitignore — the history already exists here).
 
 Then, from `twif-game/`:
 
 ```bash
-git remote add origin https://github.com/taovinci0/twif-subnet-one.git
+git remote add origin https://github.com/taovinci0/twif-game.git
 git push -u origin main
 ```
 
@@ -21,7 +21,7 @@ Repo → Settings → Pages → Source: **Deploy from a branch** → `main` / `/
 After a minute the game is live at:
 
 ```
-https://taovinci0.github.io/twif-subnet-one/game/
+https://taovinci0.github.io/twif-game/game/
 ```
 
 The deployable game is the `game/` folder only — that is why it is nested. `refs/`,
@@ -36,7 +36,7 @@ This is the gate that counts. Mine are custom; this is the one the organisers re
 export PATH="../.tooling/node/bin:$PATH"
 cd ../404-game-recipe
 node harness/ship.mjs ../twif-game/game --stamp
-node harness/jam.mjs https://taovinci0.github.io/twif-subnet-one/game/ --commit=<sha>
+node harness/jam.mjs https://taovinci0.github.io/twif-game/game/ --commit=<sha>
 ```
 
 `--stamp` cache-stamps the imports first: static hosts send `max-age=600`, so a visitor
