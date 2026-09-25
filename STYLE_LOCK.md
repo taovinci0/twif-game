@@ -52,19 +52,18 @@ objects the player must read.
 | TWIF | 1.65 h | the hero silhouette |
 | Human NPC | 1.75 h | |
 | Max Sensei | 1.75 h | |
-| Big AI grunt | 2.05 h | deliberately taller and bulkier than TWIF — see the sheet's scale comparison |
-| Big AI boss | 2.15 h | plus coat; reads taller still |
-| Control drone | 0.60 w | instanced, never unique |
+| Big AI grunt | 2.05 h | **canon.** Deliberately imposing beside TWIF |
+| Big AI boss | 2.15 h | **canon.** Reads through silhouette, coat, drones and authority, not bulk |
+| Control drone | 0.60 dia | **canon.** Instanced, never unique |
 | Subnet Summer van | 1.95 h · 4.50 l · 1.80 w | |
 | Street lantern | 2.80 h | |
 | Shopfront | 3.00–4.00 h | |
-| Torii / subnet gate | 6.00 h | |
-| Hub node gate | 5.00 h | ×128, instanced |
+| Subnet gate / portal | 5.50 h | **canon.** All standard subnet gates |
+| Hub node gate | 5.50 h | **canon.** ×128, instanced |
 | Control node / artefact | 4.00–8.00 h | |
 
-> Grunt, boss, drone and gate heights were read off the reference sheets rather than stated in
-> the brief. Confirm or overrule them here before generating — sizes drift more than colours do,
-> and a set that drifts does not assemble.
+> **These are canon, declared by the project owner.** Do not infer dimensions from the concept
+> sheets. The verifier enforces declared sizes via `<name>.expect.json`.
 
 ## Materials
 

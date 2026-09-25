@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>TWIF: Subnet One</title>
+<!-- The one network dependency, pinned to the version the verifier renders with. -->
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+<link rel="icon" href="data:,">
+<style>
+  :root{--green:#9AFF43;--gold:#D4A24C;--amber:#E66D32;--ink:#E7DFC9;--bg:#080A0B;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  .screen{position:fixed;inset:0;z-index:40;display:none;flex-direction:column;align-items:center;
+    justify-content:center;gap:20px;text-align:center;padding:24px;
+    background:radial-gradient(ellipse at 50% 45%,rgba(14,16,18,.82),rgba(4,5,6,.96))}
+  .screen.on{display:flex}
+  .screen h1{margin:0;font-size:clamp(26px,7vw,52px);letter-spacing:.3em;text-indent:.3em;font-weight:400}
+  .screen h1 b{color:var(--green);font-weight:400}
+  .screen p{margin:0;font-size:12px;line-height:2;color:#8b9097;letter-spacing:.1em;max-width:min(540px,86vw)}
+  .btn{padding:15px 36px;border:1px solid #4a5057;background:rgba(20,22,25,.9);color:var(--ink);
+    font:inherit;font-size:13px;letter-spacing:.24em;text-indent:.24em;cursor:pointer}
+  .btn:hover,.btn:active{border-color:var(--green);color:var(--green)}
+  kbd{border:1px solid #40454b;padding:1px 6px;border-radius:2px;color:#b9bec4;font-size:11px}
+
+  #load{position:fixed;inset:0;z-index:50;background:#0a0b0c;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:16px}
+  #bar{width:min(320px,60vw);height:2px;background:#23262a}
+  #barf{height:100%;width:0;background:var(--green);transition:width .15s linear}
+  #loadmsg{font-size:11px;color:#585d63;letter-spacing:.14em;height:14px}
+
+  #hud{position:fixed;inset:0;z-index:12;display:none;pointer-events:none}
+  #hud.on{display:block}
+  #obj{position:absolute;left:0;right:0;top:max(16px,env(safe-area-inset-top));text-align:center;
+    text-shadow:0 2px 6px #000}
+  #obj .t{font-size:10px;letter-spacing:.3em;color:var(--gold)}
+  #obj .s{font-size:clamp(14px,3.6vw,20px);letter-spacing:.06em;margin-top:4px}
+  #nodes{position:absolute;right:max(16px,env(safe-area-inset-right));top:max(16px,env(safe-area-inset-top));
+    font-size:11px;letter-spacing:.2em;color:#8b9097;text-align:right;text-shadow:0 2px 6px #000}
+  #nodes b{color:var(--green);font-weight:400}
+  #vit{position:absolute;left:max(18px,env(safe-area-inset-left));bottom:max(18px,env(safe-area-inset-bottom));
+    text-shadow:0 2px 6px #000}
+  #vit .lab{font-size:9px;letter-spacing:.26em;color:#8b9097}
+  #hpbar{width:150px;height:4px;background:rgba(255,255,255,.14);margin-top:5px}
+  #hpfill{height:100%;width:100%;background:var(--green);transition:width .12s}
+  #prompt{position:absolute;left:0;right:0;bottom:30%;text-align:center;font-size:12px;
+    letter-spacing:.18em;color:var(--gold);opacity:0;transition:opacity .2s;text-shadow:0 2px 8px #000}
+  #prompt.on{opacity:1}
+  #toast{position:absolute;left:0;right:0;top:40%;text-align:center;font-size:13px;
+    letter-spacing:.2em;color:var(--green);opacity:0;text-shadow:0 2px 8px #000}
+  #speedo{position:absolute;right:max(18px,env(safe-area-inset-right));
+    bottom:max(18px,env(safe-area-inset-bottom));text-align:right;display:none;text-shadow:0 2px 6px #000}
+  #speedo.on{display:block}
+  #speedo .n{font-size:30px;line-height:1}
+  #speedo .u{font-size:9px;letter-spacing:.24em;color:#8b9097}
+  #perf{position:absolute;left:max(18px,env(safe-area-inset-left));top:max(16px,env(safe-area-inset-top));
+    font-size:9px;color:#5f646a;letter-spacing:.06em;line-height:1.7;display:none}
+  #perf.on{display:block}
+
+  /* touch-action:none on every touch surface, not just the canvas. Without it a
+     vertical drag on the thumbstick is claimed by the browser's pan gesture,
+     which fires pointercancel and drops the stick mid-move. */
+  #touch{position:fixed;inset:0;z-index:14;display:none;touch-action:none}
+  #touch *{touch-action:none}
+  #touch.on{display:block}
+  .pe{pointer-events:auto}
+  #stick{position:absolute;left:0;bottom:0;width:46%;height:58%}
+  #sbase{position:absolute;width:108px;height:108px;margin:-54px 0 0 -54px;border-radius:50%;
+    border:1.5px solid rgba(232,228,220,.26);opacity:0}
+  #snub{position:absolute;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;
+    background:rgba(232,228,220,.18);border:1.5px solid rgba(232,228,220,.42);opacity:0}
+  #look{position:absolute;right:0;top:0;width:54%;height:100%}
+  .tbtn{position:absolute;border-radius:50%;border:1.5px solid rgba(232,228,220,.32);
+    background:rgba(16,18,20,.42);display:flex;align-items:center;justify-content:center;
+    font-size:10px;letter-spacing:.12em;color:#d6d2ca;user-select:none}
+  .tbtn.dn{background:rgba(154,255,67,.26);border-color:var(--green)}
+  #batk{right:max(18px,env(safe-area-inset-right));bottom:24%;width:92px;height:92px;font-size:12px}
+  #bact{right:max(116px,calc(env(safe-area-inset-right) + 116px));bottom:17%;width:64px;height:64px}
+  #bdog{right:max(24px,env(safe-area-inset-right));bottom:11%;width:60px;height:60px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="load">
+  <h1 style="margin:0;font-size:clamp(22px,6vw,42px);letter-spacing:.3em;text-indent:.3em;font-weight:400">TWIF</h1>
+  <div style="font-size:11px;letter-spacing:.3em;color:#6d7278">SUBNET ONE</div>
+  <div id="bar"><div id="barf"></div></div>
+  <div id="loadmsg">initialising</div>
+</div>
+
+<div id="hud">
+  <div id="obj"><div class="t">OBJECTIVE</div><div class="s" id="objs">—</div></div>
+  <div id="nodes">NETWORK <b id="ncount">0</b> / 128</div>
+  <div id="vit"><div class="lab">VITALS</div><div id="hpbar"><div id="hpfill"></div></div></div>
+  <div id="speedo"><div class="n" id="spd">0</div><div class="u">KM/H</div></div>
+  <div id="prompt"></div>
+  <div id="toast"></div>
+  <div id="perf"></div>
+</div>
+
+<div id="touch">
+  <div class="pe" id="stick"><div id="sbase"></div><div id="snub"></div></div>
+  <div class="pe" id="look"></div>
+  <div class="tbtn pe" id="batk">ATK</div>
+  <div class="tbtn pe" id="bact">ACT</div>
+  <div class="tbtn pe" id="bdog">DGE</div>
+</div>
+
+<div class="screen" id="start">
+  <h1>TWIF<b>.</b></h1>
+  <p id="startp"></p>
+  <button class="btn pe" id="startb">ENTER THE NETWORK</button>
+</div>
+
+<div class="screen" id="over">
+  <h1 id="overh">DISCONNECTED</h1>
+  <p id="overp"></p>
+  <button class="btn pe" id="overb">RECONNECT</button>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
