@@ -83,8 +83,8 @@ export default function (THREE) {
   // ---- fascia band, full width, returning around both corners ------------
   box(7.26, 1.60, 0.16, trim, 0, 2.92, 2.88);         // carcass, z 2.80..2.96
   box(7.00, 1.48, 0.05, cream, 0, 2.92, 2.975);       // <- blank panel, face z = 3.00
-  box(7.26, 0.10, 0.18, trim, 0, 3.67, 2.92);
-  box(7.26, 0.10, 0.18, trim, 0, 2.17, 2.92);
+  box(7.26, 0.10, 0.18, trim, 0, 3.67, 2.91);
+  box(7.26, 0.10, 0.18, trim, 0, 2.17, 2.91);
   for (const s of [-1, 1]) {
     box(0.16, 1.60, 0.62, trim, s * 3.48, 2.92, 2.55);   // corner return
     box(0.05, 1.40, 0.52, cream, s * 3.585, 2.92, 2.55); // blank return face

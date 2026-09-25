@@ -63,10 +63,10 @@ export default function (THREE) {
 
   // ---- 2. BLANK FASCIA PANEL ----------------------------------------------
   box(7.00, 1.50, 0.05, cream, 0, 2.90, 2.975);        // face at z = 3.00
-  box(7.14, 0.10, 0.10, trim, 0, 3.68, 2.97);
-  box(7.14, 0.10, 0.10, trim, 0, 2.12, 2.97);
-  box(0.10, 1.60, 0.10, trim, -3.52, 2.90, 2.97);
-  box(0.10, 1.60, 0.10, trim, 3.52, 2.90, 2.97);
+  box(7.14, 0.10, 0.08, trim, 0, 3.68, 2.96);
+  box(7.14, 0.10, 0.08, trim, 0, 2.12, 2.96);
+  box(0.10, 1.60, 0.08, trim, -3.52, 2.90, 2.96);
+  box(0.10, 1.60, 0.08, trim, 3.52, 2.90, 2.96);
 
   // ---- 3. shopfront frame: one shape with holes ---------------------------
   const front = new THREE.Shape();
@@ -125,11 +125,11 @@ export default function (THREE) {
   box(1.30, 0.04, 1.02, dark, -1.45, 3.92, -0.60);
   const cowl = new THREE.LatheGeometry([
     new THREE.Vector2(0.00, 0.00), new THREE.Vector2(0.22, 0.00),
-    new THREE.Vector2(0.22, 0.04), new THREE.Vector2(0.12, 0.05),
-    new THREE.Vector2(0.12, 0.12), new THREE.Vector2(0.30, 0.16),
-    new THREE.Vector2(0.30, 0.22), new THREE.Vector2(0.00, 0.22),
+    new THREE.Vector2(0.22, 0.02), new THREE.Vector2(0.12, 0.03),
+    new THREE.Vector2(0.12, 0.07), new THREE.Vector2(0.30, 0.09),
+    new THREE.Vector2(0.30, 0.12), new THREE.Vector2(0.00, 0.12),
   ], 12);
-  add(cowl, trim, -1.45, 3.94, -0.60);
+  add(cowl, trim, -1.45, 3.88, -0.60);
   const unit2 = shapeOf([[-0.48, 0], [0.48, 0], [0.48, 0.26], [-0.48, 0.26]]);
   add(ex(unit2, 0.72), trim, 1.35, 3.70, -1.86);
   box(1.02, 0.04, 0.78, dark, 1.35, 3.98, -1.50);

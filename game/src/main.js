@@ -12,6 +12,8 @@ import { Input } from './input.js';
 import { buildHub, buildSubnet, makeBeacon, loadAssets, MAT } from './world.js';
 import { Player, Van } from './entities.js';
 import { Mission } from './mission.js';
+import { Audio } from './audio.js';
+import { createLighting } from './lighting.js';
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -23,24 +25,12 @@ renderer.toneMappingExposure = 1.28;
 renderer.info.autoReset = false;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x121a26);
-scene.fog = new THREE.Fog(0x121a26, 70, 300);
 
 const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 900);
 
-// Greybox lighting. Deliberately cheap: the rig goes in at the polish stage,
-// measured on the phone tier, because it costs three times the draw calls.
-const hemi = new THREE.HemisphereLight(0x8fb4d8, 0x1a1e24, 0.95);
-scene.add(hemi);
-const key = new THREE.DirectionalLight(0xffd9a8, 1.55);
-key.position.set(-40, 60, 20);
-key.castShadow = true;
-key.shadow.mapSize.set(1024, 1024);
-key.shadow.camera.near = 1; key.shadow.camera.far = 220;
-const sc = 70;
-key.shadow.camera.left = -sc; key.shadow.camera.right = sc;
-key.shadow.camera.top = sc; key.shadow.camera.bottom = -sc;
-scene.add(key, key.target);
+// Night lighting. Two colour temperatures made in the lights, a sky that cannot
+// disagree with them, and practicals that always light the ground beneath them.
+const lighting = createLighting(THREE, renderer, scene, { tier: 'auto' });
 
 // ---------------------------------------------------------------- world
 // Generated modules load before anything is built, and before __READY__. An
@@ -70,6 +60,7 @@ const world = {
 let blockers = hub.blockers;
 
 const input = new Input();
+const audio = new Audio();
 const player = new Player(scene);
 const van = new Van(scene);
 const mission = new Mission(scene, hub, sub, player, van);
@@ -77,6 +68,7 @@ const beacon = makeBeacon();
 scene.add(beacon);
 world.show('hub');
 player.teleport(HUB.x, HUB.z + 6, Math.PI);
+lighting.adopt(scene);
 
 // ---------------------------------------------------------------- ui
 const el = (id) => document.getElementById(id);
@@ -118,6 +110,8 @@ window.__GAME__ = {
   camYaw: 0, nearest: null, target: null,
 };
 let swings = 0;
+let prevAttackT = 0;
+let audioStage = null;
 
 function startGame() {
   if (running) return;
@@ -134,7 +128,10 @@ function startGame() {
 }
 window.__START__ = startGame;
 ui.startb.addEventListener('click', startGame);
-ui.overb.addEventListener('click', () => location.reload());
+ui.startb.addEventListener('click', () => { audio.unlock(); audio.ui('confirm'); audio.music('hub'); });
+// some iOS builds need the first touch anywhere
+addEventListener('pointerdown', () => audio.unlock(), { once: true, capture: true });
+ui.overb.addEventListener('click', () => { audio.ui('select'); location.reload(); });
 
 function endGame(win) {
   if (over) return;
@@ -146,6 +143,7 @@ function endGame(win) {
     : 'The network reclaimed you. Reconnect and try again.';
   ui.over.classList.add('on');
   ui.hud.classList.remove('on');
+  if (!win) audio.music('off');
 }
 
 // ---------------------------------------------------------------- loop
@@ -175,7 +173,7 @@ function frameLoop(now) {
   if (running && !over) step(dt);
 
   renderer.info.reset();
-  renderer.render(scene, camera);
+  lighting.render(camera, dt);
 
   const r = renderer.info.render;
   const g = window.__GAME__;
@@ -232,10 +230,12 @@ function step(dt) {
   } else {
     ui.speedo.classList.remove('on');
     const canHit = player.update(dt, input, camYaw, blockers, mission.enemies);
-    if (player.attackT > 0 && !player.didHit) { /* swing in progress */ }
+    if (player.attackT > 0 && prevAttackT <= 0) audio.sword(false);
+    prevAttackT = player.attackT;
     if (canHit) {
       player.didHit = true;
       swings++;
+      let hitAny = false;
       const fx = Math.sin(player.facing), fz = Math.cos(player.facing);
       for (const e of mission.enemies) {
         if (e.dead) continue;
@@ -243,19 +243,33 @@ function step(dt) {
         const dist = Math.hypot(dx, dz);
         if (dist > PLAYER.attackRange + e.S.radius) continue;
         const dot = (dx / dist) * fx + (dz / dist) * fz;
-        if (dot > Math.cos(PLAYER.attackArc)) e.hurt(PLAYER.attackDmg);
+        if (dot > Math.cos(PLAYER.attackArc)) {
+          const wasAlive = !e.dead;
+          e.hurt(PLAYER.attackDmg);
+          hitAny = true;
+          if (e.dead && wasAlive) audio.enemyDown(); else audio.enemyHit();
+        }
       }
+      audio.sword(hitAny);
     }
   }
 
   // ---- enemies
   for (const e of mission.enemies) {
     const dmg = e.update(dt, player, blockers);
-    if (dmg > 0 && player.hurt(dmg) && player.hp <= 0) endGame(false);
+    if (dmg > 0 && player.hurt(dmg)) {
+      audio.playerHurt();
+      if (player.hp <= 0) endGame(false);
+    }
   }
 
   // ---- mission
   toast(mission.update(dt, input, world));
+  if (mission.stage !== audioStage) {
+    audioStage = mission.stage;
+    if (mission.stage === 'artefact' || mission.stage === 'complete') audio.nodeActivate();
+    else audio.ui('select');
+  }
   if (mission.done && !over) endGame(true);
 
   // ---- camera
@@ -272,8 +286,7 @@ function step(dt) {
   camAim.set(target.x, target.y + CAM.lookAt, target.z);
   camera.lookAt(camAim);
 
-  key.target.position.set(target.x, 0, target.z);
-  key.position.set(target.x - 40, 60, target.z + 20);
+  lighting.update(dt, target);
 
   // ---- wayfinding
   const wp = mission.waypoint();
@@ -323,10 +336,20 @@ function step(dt) {
   else ui.prompt.classList.remove('on');
   if (toastT > 0) { toastT -= dt; ui.toast.style.opacity = String(clamp(toastT, 0, 1)); }
   else ui.toast.style.opacity = '0';
+
+  audio.update(dt, {
+    speed: player.inVan ? van.speed : player.speed,
+    inVan: player.inVan,
+    stage: mission.stage,
+    enemies: mission.liveEnemies,
+    over,
+    surface: player.inVan ? 'road' : 'stone',
+  });
 }
 
 addEventListener('keydown', (e) => {
   if (e.code === 'KeyP') ui.perf.classList.toggle('on');
+  if (e.code === 'KeyM') audio.mute(!audio.muted);
 });
 setInterval(() => {
   if (!ui.perf.classList.contains('on')) return;

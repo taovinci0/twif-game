@@ -73,9 +73,13 @@ export default function (THREE) {
     return geo;
   };
 
-  // --- small square stepped foot: sharp risers, flat treads
-  add(lathe([[0.001, 0], [0.325, 0], [0.325, 0.090], [0.2546, 0.090], [0.2546, 0.168],
-             [0.198, 0.168], [0.198, 0.232], [0.120, 0.232]], 4, Q), black, 0, 0, 0);
+  // --- small square stepped foot.
+  // Cut as boxes, not as a revolved stepped profile: LatheGeometry averages the
+  // normal at each profile point across both adjacent segments, so a sharp step
+  // comes out smooth-shaded and the whole plinth reads as a pyramid.
+  add(new THREE.BoxGeometry(0.460, 0.090, 0.460), black, 0, 0.045, 0);
+  add(new THREE.BoxGeometry(0.372, 0.078, 0.372), dark,  0, 0.129, 0);
+  add(new THREE.BoxGeometry(0.290, 0.064, 0.290), black, 0, 0.200, 0);
   add(lathe([[0.120, 0.232], [0.132, 0.248], [0.132, 0.278], [0.100, 0.296]], 8), gold, 0, 0, 0);
 
   // --- post, rising to two thirds of the height, mouldings swept into one profile

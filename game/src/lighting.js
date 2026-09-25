@@ -102,7 +102,7 @@ export const PALETTE = {
  * with a lit gate per unlocked subnet ends at 128.
  */
 export const TIERS = {
-  phone:   { name: 'phone',   shadowMap: 1024, shadowDist: 34, lights: 5,  post: false, pixelRatio: 1.0 },
+  phone:   { name: 'phone',   shadowMap: 1024, shadowDist: 34, lights: 6,  post: false, pixelRatio: 1.0 },
   desktop: { name: 'desktop', shadowMap: 2048, shadowDist: 58, lights: 10, post: true,  pixelRatio: 1.5 },
 };
 
@@ -222,11 +222,11 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
     backgroundIntensity: opts.backgroundIntensity ?? 0.62,
 
     // the cool half
-    hemiSky: opts.hemiSky ?? 0x3A63A0,             // sky seen from above: Cool Blue, lifted
-    hemiGround: opts.hemiGround ?? 0x6B3208,       // what a street of lanterns bounces back up
-    hemi: opts.hemi ?? 0.50,
-    keyColor: opts.keyColor ?? 0xA8C8FF,           // moon plus city glow, never a sun
-    key: opts.key ?? 0.70,
+    hemiSky: opts.hemiSky ?? 0x33538C,             // sky seen from above: Cool Blue, lifted
+    hemiGround: opts.hemiGround ?? 0x5E3410,       // what a street of lanterns bounces back up
+    hemi: opts.hemi ?? 0.60,
+    keyColor: opts.keyColor ?? 0xFFB169,           // the city itself: a thousand off-screen lanterns
+    key: opts.key ?? 0.90,
     keyDir: opts.keyDir ?? [-0.42, 1.0, 0.34],
     shadows: opts.shadows !== false,
 
@@ -234,7 +234,7 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
     fog: opts.fog !== false,
     fogNear: opts.fogNear ?? 26,
     fogFar: opts.fogFar ?? 260,
-    fogColor: opts.fogColor ?? 0x241A38,
+    fogColor: opts.fogColor ?? 0x40263C,
 
     // practicals
     lampIntensity: opts.lampIntensity ?? 1.0,      // global scale on every registered lamp
@@ -247,8 +247,8 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
 
     // the hero
     accent: opts.accent ?? PALETTE.green,
-    heroLight: opts.heroLight ?? 2.6,
-    heroPool: opts.heroPool ?? 0.40,
+    heroLight: opts.heroLight ?? 1.8,
+    heroPool: opts.heroPool ?? 0.22,
     fill: opts.fill ?? 0.34,                       // camera fill: readability, not lighting
     fillDistance: opts.fillDistance ?? 15,
 
@@ -347,13 +347,20 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
   /* ------------------------------------------------- pools, streaks, halos */
   const quad = new THREE.PlaneGeometry(1, 1);
   const soft = radialTexture(THREE, 2.4);
+  const core = radialTexture(THREE, 3.4);   // sharper: a halo is a white core in a coloured falloff
 
   const poolMat = new THREE.MeshBasicMaterial({
     map: soft, transparent: true, blending: THREE.AdditiveBlending,
     depthWrite: false, side: THREE.DoubleSide, toneMapped: true, fog: true,
   });
+  /**
+   * The halo is the whole of the bloom on the phone tier. It is written to clip: at the centre
+   * it is well over 1 in linear HDR, so ACES rolls it to white, and the falloff carries the
+   * lamp's own colour out around it. That is what a lantern looks like in the reference frames
+   * — a white core in a coloured glow — and a composer is not needed for it.
+   */
   const haloMat = new THREE.MeshBasicMaterial({
-    map: soft, transparent: true, blending: THREE.AdditiveBlending,
+    map: core, transparent: true, blending: THREE.AdditiveBlending,
     depthWrite: false, side: THREE.DoubleSide, toneMapped: true, fog: true,
   });
 
@@ -418,7 +425,7 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
       intensity: (o.intensity ?? 1) * O.lampIntensity,
       range,
       // a pool is as wide as the light reaches, floored so a small source still grounds itself
-      pool: o.pool ?? clamp(range * 0.34, 1.8, 8),
+      pool: o.pool ?? clamp(range * 0.46, 1.8, 10),
       poolGain: (o.poolGain ?? 1) * O.poolIntensity,
       streak: o.streak ?? 1.45,             // how far the wet smear runs, as a multiple of pool
       streakAxis: o.streakAxis ?? 'z',
@@ -465,7 +472,7 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
       _s.set(L.pool * 2, L.pool * 2, 1);
       _m.compose(_v, FLAT, _s);
       pools.setMatrixAt(n, _m);
-      tint(_c, L.color, clamp(0.42 * L.intensity * L.poolGain, 0, 0.95));
+      tint(_c, L.color, clamp(0.62 * L.intensity * L.poolGain, 0, 1.15));
       pools.setColorAt(n, _c);
       n++;
 
@@ -476,7 +483,7 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
              along ? L.pool * 0.7 : L.pool * 2 * L.streak, 1);
       _m.compose(_v, FLAT, _s);
       pools.setMatrixAt(n, _m);
-      tint(_c, L.color, clamp(0.17 * L.intensity * L.poolGain, 0, 0.45));
+      tint(_c, L.color, clamp(0.26 * L.intensity * L.poolGain, 0, 0.6));
       pools.setColorAt(n, _c);
       n++;
 
@@ -485,7 +492,7 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
         _s.set(L.halo * 2, L.halo * 2, 1);
         _m.compose(_v, _q.identity(), _s);
         halos.setMatrixAt(h, _m);
-        tint(_c, L.color, clamp(0.62 * L.intensity * L.haloGain, 0, 1.3));
+        tint(_c, L.color, clamp(1.75 * L.intensity * L.haloGain, 0, 3.0));
         halos.setColorAt(h, _c);
         L.halo_i = h;
         h++;
@@ -568,12 +575,20 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
 
     const made = [];
     for (const k of kept) {
+      // idempotent: a second adopt() of the same root registers nothing twice, so the game can
+      // call it again whenever something lights up mid-mission — the return gate, a node coming
+      // online — without the lamp list growing every time.
+      let already = false;
+      for (const L of lamps) {
+        if (L.live && L.pos.distanceToSquared(k.p) < spacing * spacing) { already = true; break; }
+      }
+      if (already) continue;
       // a 0.5 m lantern reaches a few metres; a 6 m sign box reaches further. Size sets range.
-      const range = o.range ?? clamp(4 + k.r * 3.2, 6, 26);
+      const range = o.range ?? clamp(10 + k.r * 4.0, 14, 30);
       made.push(addLamp(k.p, k.m.emissive.getHex(), {
         intensity: (o.intensity ?? 1) * clamp(0.5 + k.ei * 0.5, 0.4, 2.2),
         range,
-        pool: o.pool ?? clamp(range * 0.34, 1.4, 8),
+        pool: o.pool ?? clamp(range * 0.46, 1.4, 10),
         halo: o.halo ?? clamp(k.r * 0.9, 0.35, 3.0),
         groundY: o.groundY ?? O.groundY,
         accent: o.accent,
@@ -661,7 +676,7 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
     if (obj && !hero.userData.pool) {
       hero.userData.pool = addLamp([0, 1.2, 0], o.color ?? O.accent, {
         accent: true, intensity: o.poolIntensity ?? O.heroPool, range: 6,
-        pool: 0.95, streak: 1.5, halo: 0.0, always: false,
+        pool: 0.7, streak: 1.2, halo: 0.0, always: false,
       });
     }
     return hero;
@@ -704,8 +719,11 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
    */
   function update(dt = 0.016, focusPos = null, camera = null) {
     if (camera) lastCam = camera;
-    if (focusPos) focus.set(focusPos.x ?? focusPos[0] ?? 0, focusPos.y ?? focusPos[1] ?? 0, focusPos.z ?? focusPos[2] ?? 0);
-    if (focusPos && focusPos.isVector3) focus.copy(focusPos);
+    // a Vector3, a {x,y,z}, or an [x, y, z]
+    if (focusPos) {
+      if (Array.isArray(focusPos)) focus.set(focusPos[0] || 0, focusPos[1] || 0, focusPos[2] || 0);
+      else focus.set(focusPos.x || 0, focusPos.y || 0, focusPos.z || 0);
+    }
     if (dirty) rebuild();
 
     // ---- key follows the focus, snapped to the shadow map's own texel grid so the shadow
@@ -735,7 +753,7 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
       slot.light.distance = L.range;
       // candela. A lantern 2.8 m up wants to put a readable pool on the road under it, and with
       // decay 2 that is intensity / 7.8 at the player's feet.
-      slot.light.intensity = 11 * L.intensity * slot.k;
+      slot.light.intensity = 26 * L.intensity * slot.k;
     }
 
     // ---- the hero
@@ -826,6 +844,15 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
   }
 
   /* --------------------------------------------------------------- info */
+  // `unlitEmissive()` is a full scene traverse, and a gate that polls info() every frame would
+  // pay for it every frame. Recomputed at most once a second; call unlitEmissive() directly for
+  // an answer that is definitely current.
+  let unlitCache = -1, unlitAt = -1e9;
+  function unlitCached() {
+    if (frame - unlitAt > 60 || unlitCache < 0) { unlitCache = unlitEmissive(scene); unlitAt = frame; }
+    return unlitCache;
+  }
+
   function info() {
     let warm = 0, cool = 0, active = 0;
     const hsl = { h: 0, s: 0, l: 0 };
@@ -852,7 +879,7 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
       warmInFrame: warm > 0 || ambientWarm,
       coolInFrame: cool > 0 || ambientCool,
       twoTemperatures: (warm > 0 || ambientWarm) && (cool > 0 || ambientCool),
-      unlitEmissive: unlitEmissive(scene),
+      unlitEmissive: unlitCached(),
       post: !!postReady,
       shadowMap: tier.shadowMap,
       exposure: renderer.toneMappingExposure,
@@ -867,7 +894,7 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
   function dispose() {
     scene.remove(hemi, key, key.target, fill, hero, pools, halos);
     for (const s of lights) scene.remove(s.light);
-    quad.dispose(); soft.dispose(); poolMat.dispose(); haloMat.dispose();
+    quad.dispose(); soft.dispose(); core.dispose(); poolMat.dispose(); haloMat.dispose();
     if (envRT) envRT.dispose();
     if (skyTex) skyTex.dispose();
     if (composer) composer.dispose();

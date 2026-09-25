@@ -114,6 +114,11 @@ export async function loadAssets(onProgress = () => {}) {
   await tryAsset('twif', './assets/twif.js', { keepHierarchy: true, surfaces: true });
   onProgress(0.9, 'subnet summer van');
   await tryAsset('van', './assets/subnet_summer_van.js', { keepHierarchy: true, surfaces: true });
+  onProgress(0.94, 'street props');
+  await tryAsset('lantern', './assets/street_lantern.js', { surfaces: true });
+  await tryAsset('block',   './assets/shop_block.js',     { surfaces: true });
+  await tryAsset('shrine',  './assets/const_shrine.js',   { surfaces: true });
+  await tryAsset('dojo',    './assets/dojo_facade.js',    { surfaces: true });
   onProgress(1, 'ready');
 }
 
@@ -145,11 +150,16 @@ export function litGate(gate, color = 0x9AFF43, intensity = 1.5) {
 /** Turn a loaded asset into InstancedMeshes — one per material, not one per copy.
  *  127 dormant nodes cost about five draw calls this way instead of 127 times
  *  whatever the gate costs. */
-function instancedFrom(proto, count, material = null) {
+function instancedFrom(proto, count, material = null, maxParts = 64) {
   const group = new THREE.Group();
   const parts = [];
   proto.updateMatrixWorld(true);
   proto.traverse((n) => { if (n.isMesh) parts.push(n); });
+  if (parts.length > maxParts) {
+    console.warn('[assets] prototype has ' + parts.length + ' meshes after merge; '
+      + 'instancing it would cost that many draw calls. Refusing.');
+    return null;
+  }
   for (const mesh of parts) {
     const geo = mesh.geometry.clone();
     geo.applyMatrix4(mesh.matrixWorld);          // bake the part's own transform in
@@ -183,10 +193,19 @@ export function buildHub() {
   const plat = new THREE.Mesh(new THREE.CylinderGeometry(HUB.radius, HUB.radius, 1, 48), MAT.stone);
   plat.position.y = -0.5; plat.receiveShadow = true; g.add(plat);
 
-  const shrine = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 4.0, 1.4, 24), MAT.charcoal);
-  shrine.position.y = 0.7; g.add(shrine);
-  const idol = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.2, 1.2), MAT.gold);
-  idol.position.y = 2.5; idol.rotation.y = Math.PI / 4; g.add(idol);
+  const genShrine = charInstance('shrine');
+  if (genShrine) {
+    genShrine.scale.setScalar(1.7);
+    genShrine.position.set(0, 0, 0);
+    g.add(genShrine);
+    const sl = new THREE.PointLight(0xD4A24C, 12, 20, 2);
+    sl.position.set(0, 3.4, 2.2); g.add(sl);
+  } else {
+    const shrine = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 4.0, 1.4, 24), MAT.charcoal);
+    shrine.position.y = 0.7; g.add(shrine);
+    const idol = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.2, 1.2), MAT.gold);
+    idol.position.y = 2.5; idol.rotation.y = Math.PI / 4; g.add(idol);
+  }
   blockers.push({ x: HUB.x, z: HUB.z, hx: 4.2, hz: 4.2 });
 
   // 127 dormant gates, instanced. The active one is a separate copy so it can
@@ -243,45 +262,82 @@ export function buildSubnet() {
   g.add(arrival);
 
   // --- street: buildings either side, instanced
-  const bGeo = new THREE.BoxGeometry(9, 1, 9);
   const count = 26;
-  const buildings = new THREE.InstancedMesh(bGeo, MAT.charcoal, count);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), sc = new THREE.Vector3();
+  const blockProto = charInstance('block');
+  const buildings = blockProto ? instancedFrom(blockProto, count) : null;
+  const bGeo = buildings ? null : new THREE.BoxGeometry(9, 1, 9);
+  const fallbackBuildings = buildings ? null : new THREE.InstancedMesh(bGeo, MAT.charcoal, count);
   let bi = 0;
   for (let i = 0; i < count / 2; i++) {
     const z = SUB.streetZ0 - i * 9;
     for (const side of [-1, 1]) {
-      const h = 7 + ((i * 37 + (side > 0 ? 13 : 0)) % 4) * 2.5;
       const x = X + side * 12.5;
-      pos.set(x, h / 2, z); sc.set(1, h, 1);
-      m.compose(pos, q, sc);
-      buildings.setMatrixAt(bi++, m);
+      if (buildings) {
+        // real blocks: vary the facing rather than the height, so the windows
+        // and shopfront bands never stretch
+        const ry = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), ry + ((i % 2) ? Math.PI : 0));
+        const k = 0.92 + ((i * 17) % 5) * 0.06;
+        pos.set(x, 0, z); sc.set(k, k, k);
+        m.compose(pos, q, sc);
+        for (const im of buildings.children) im.setMatrixAt(bi, m);
+      } else {
+        const h = 7 + ((i * 37 + (side > 0 ? 13 : 0)) % 4) * 2.5;
+        pos.set(x, h / 2, z); sc.set(1, h, 1);
+        m.compose(pos, q, sc);
+        fallbackBuildings.setMatrixAt(bi, m);
+      }
+      bi++;
       blockers.push({ x, z, hx: 4.5, hz: 4.5 });
     }
   }
-  buildings.instanceMatrix.needsUpdate = true;
-  buildings.castShadow = true; buildings.frustumCulled = false;
-  g.add(buildings);
+  if (buildings) {
+    for (const im of buildings.children) im.instanceMatrix.needsUpdate = true;
+    g.add(buildings);
+  } else {
+    fallbackBuildings.instanceMatrix.needsUpdate = true;
+    fallbackBuildings.castShadow = true; fallbackBuildings.frustumCulled = false;
+    g.add(fallbackBuildings);
+  }
 
   // --- lanterns down the street, instanced, with a handful of real lights.
   // Nothing glows without lighting its surroundings — STYLE_LOCK.
-  const lGeo = new THREE.BoxGeometry(0.5, 0.7, 0.5);
   const lampCount = 12;
-  const lamps = new THREE.InstancedMesh(lGeo, MAT.lantern, lampCount);
+  const lampProto = charInstance('lantern');
+  const genLamps = lampProto ? instancedFrom(lampProto, lampCount) : null;
+  const lGeo = genLamps ? null : new THREE.BoxGeometry(0.5, 0.7, 0.5);
+  const lamps = genLamps || new THREE.InstancedMesh(lGeo, MAT.lantern, lampCount);
   let li = 0;
   for (let i = 0; i < lampCount; i++) {
     const z = SUB.streetZ0 - i * 9.5;
     const x = X + (i % 2 ? 7.5 : -7.5);
-    pos.set(x, SCALE.lantern, z); sc.set(1, 1, 1);
-    m.compose(pos, q, sc); lamps.setMatrixAt(li++, m);
+    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), i % 2 ? -Math.PI / 2 : Math.PI / 2);
+    pos.set(x, genLamps ? 0 : SCALE.lantern, z); sc.set(1, 1, 1);
+    m.compose(pos, q, sc);
+    if (genLamps) { for (const im of genLamps.children) im.setMatrixAt(li, m); li++; }
+    else lamps.setMatrixAt(li++, m);
     if (i % 3 === 0) {
       const pl = new THREE.PointLight(0xE66D32, 10, 16, 2);
       pl.position.set(x, SCALE.lantern, z);
       g.add(pl);
     }
   }
-  lamps.instanceMatrix.needsUpdate = true; lamps.frustumCulled = false;
+  if (genLamps) { for (const im of genLamps.children) im.instanceMatrix.needsUpdate = true; }
+  else { lamps.instanceMatrix.needsUpdate = true; lamps.frustumCulled = false; }
   g.add(lamps);
+  q.identity();
+
+  // Max Sensei's dojo, at the tutorial beat
+  const genDojo = charInstance('dojo');
+  if (genDojo) {
+    genDojo.position.set(X - 11.5, 0, SUB.tutorialZ - 2);
+    genDojo.rotation.y = Math.PI / 2;
+    g.add(genDojo);
+    const dl = new THREE.PointLight(0xE66D32, 11, 20, 2);
+    dl.position.set(X - 7.5, 3.2, SUB.tutorialZ - 2);
+    g.add(dl);
+  }
 
   // --- road
   const road = new THREE.Mesh(new THREE.PlaneGeometry(SUB.roadW, SUB.roadZ0 - SUB.roadZ1), MAT.road);

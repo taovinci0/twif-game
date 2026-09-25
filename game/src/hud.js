@@ -94,12 +94,12 @@ function paint(title, steps) {
     el.objlist.appendChild(li);
   }
   // #objs must never leave the document: main.js holds a reference to it and
-  // writes to it every frame whether it is attached or not.
+  // writes to it every frame whether it is attached or not. With no current step
+  // it is parked on the list itself, hidden, still taking writes.
   if (el.objs && !el.objlist.contains(el.objs)) {
-    const li = el.objlist.lastElementChild || el.objlist;
     el.objs.className = 'tx';
     el.objs.style.display = 'none';
-    li.appendChild(el.objs);
+    el.objlist.appendChild(el.objs);
   } else if (el.objs) {
     el.objs.style.display = '';
   }
@@ -110,8 +110,13 @@ function paint(title, steps) {
  * @param {string} title  chapter title, drawn uppercase in gold
  * @param {Array}  steps  ['Find Max Sensei', ...] or
  *                        [{label, done:bool, current:bool, count:'3/12'}, ...]
- *                        The current step (or the first not-done one) gets #objs
- *                        as its label element, so main.js keeps driving the text.
+ *
+ * The current step (the one flagged `current`, else the first not-done one) is
+ * given #objs as its label element. That means main.js keeps driving the text of
+ * that one row — a `label` passed for the current step is only the text shown
+ * until main.js writes. Every other row's label is yours. This is deliberate:
+ * `mission.objective` is the live current step, counters and all, and two writers
+ * for one string would only flicker.
  * Calling this switches the panel to manual mode. Call setObjective(null) to hand
  * it back to the automatic mission script.
  */
@@ -215,6 +220,13 @@ function mapSize() {
  *        scale is the world radius in metres the disc covers (default 70).
  */
 export function drawMinimap(s) {
+  if (!s) { mapManual = false; return; }   // hand the disc back to the auto loop
+  mapManual = true;
+  paintMinimap(s);
+}
+let mapManual = false;
+
+function paintMinimap(s) {
   if (!mapSize() || !s || !s.player) return;
   const ctx = mctx;
   const cx = mW / 2, cy = mH / 2, r = Math.min(cx, cy);
@@ -342,8 +354,15 @@ export function drawMinimap(s) {
 const ARC = 144.5;                                   // length of the semicircle
 const TOP_SPEED = 140;                               // km/h the dial fills at
 
-/** Drive the driving readout. Pass km/h; gear is derived when omitted. */
+/** Drive the driving readout. Pass km/h; gear is derived when omitted.
+ *  Calling this stops the dial deriving its value from #spd. */
 export function setSpeed(kmh, gear) {
+  speedManual = true;
+  applySpeed(kmh, gear);
+}
+let speedManual = false;
+
+function applySpeed(kmh, gear) {
   const v = Math.max(0, Number(kmh) || 0);
   if (el.sarc) {
     const t = Math.min(1, v / TOP_SPEED);
@@ -380,7 +399,7 @@ function tick() {
     lastDrive = driving;
     el.hud.classList.toggle('drive', driving);
   }
-  if (driving && el.spd) setSpeed(parseFloat(el.spd.textContent) || 0);
+  if (driving && el.spd && !speedManual) applySpeed(parseFloat(el.spd.textContent) || 0);
 
   // ---- compass. main.js's camYaw is an orbit angle: the view looks along
   // (-sin yaw, -cos yaw), so the bearing from north (-Z) is simply -yaw.
@@ -394,13 +413,16 @@ function tick() {
   }
   drawCompass(heading, bearing);
 
-  // ---- minimap
-  drawMinimap({
-    player: { x: pos[0], z: pos[1], yaw },
-    target: g.target || null,
-    enemies: g.nearest ? [[g.nearest[0], g.nearest[1]]] : [],
-    scale: g.inVan ? 130 : 70,
-  });
+  // ---- minimap. __GAME__ carries only the nearest enemy, so that is what the
+  // disc shows until main.js calls drawMinimap() with the real list.
+  if (!mapManual) {
+    paintMinimap({
+      player: { x: pos[0], z: pos[1], yaw },
+      target: g.target || null,
+      enemies: g.nearest ? [[g.nearest[0], g.nearest[1]]] : [],
+      scale: g.inVan ? 130 : 70,
+    });
+  }
 
   // ---- focus pips track vitality
   const hp = typeof g.hp === 'number' ? g.hp : 100;

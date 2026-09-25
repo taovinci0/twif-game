@@ -36,8 +36,8 @@ export default function (THREE) {
   for (const s of [-1, 1]) {
     add(B(1.30, 7.00, 1.30), white, s * 4.35, 3.50, -0.05);  // square pillar, front +0.60
     add(B(1.18, 6.50, 0.82), white, s * 4.35, 3.25, -1.01);  // flank wall behind it
-    add(B(1.38, 0.18, 1.38), gun,   s * 4.35, 0.52, -0.05);  // pillar base band
-    add(B(1.38, 0.14, 1.38), gun,   s * 4.35, 6.70, -0.05);  // pillar head band
+    add(B(1.30, 0.18, 1.42), gun,   s * 4.35, 0.52, -0.05);  // pillar base band
+    add(B(1.30, 0.14, 1.42), gun,   s * 4.35, 6.70, -0.05);  // pillar head band
     add(B(0.07, 5.90, 0.07), lit,   s * 3.66, 3.60,  0.56);  // slim lit arris on the reveal
   }
 
@@ -52,13 +52,13 @@ export default function (THREE) {
   add(B(7.36, 0.06, 0.10), gun, 0, 3.14, -0.40);
 
   // ---------------------------------------------------- revolving door drum
-  add(B(1.90, 2.45, 0.08), black, 0, 1.675, -0.70);          // blocks the drum interior
-  add(new THREE.CylinderGeometry(0.85, 0.85, 2.30, 18, 1, true), glassD, 0, 1.60, -0.60);
-  add(new THREE.CylinderGeometry(0.95, 0.95, 0.18, 18), white, 0, 2.84, -0.60);
-  add(new THREE.CylinderGeometry(0.95, 0.95, 0.07, 18), gun,   0, 0.485, -0.60);
-  add(new THREE.CylinderGeometry(0.09, 0.09, 2.28, 8), gun,    0, 1.60, -0.60);
+  add(B(1.90, 2.45, 0.08), black, 0, 1.675, -0.65);          // blocks the drum interior
+  add(new THREE.CylinderGeometry(0.85, 0.85, 2.30, 18, 1, true), glassD, 0, 1.60, -0.55);
+  add(new THREE.CylinderGeometry(0.95, 0.95, 0.18, 18), white, 0, 2.84, -0.55);
+  add(new THREE.CylinderGeometry(0.95, 0.95, 0.07, 18), gun,   0, 0.485, -0.55);
+  add(new THREE.CylinderGeometry(0.09, 0.09, 2.28, 8), gun,    0, 1.60, -0.55);
   for (let i = 0; i < 4; i++) {
-    const p = new THREE.Group(); p.position.set(0, 0, -0.60); p.rotation.y = i * Math.PI / 2 + 0.4; g.add(p);
+    const p = new THREE.Group(); p.position.set(0, 0, -0.55); p.rotation.y = i * Math.PI / 2 + 0.4; g.add(p);
     add(B(0.05, 2.24, 0.78), glass, 0, 1.60, 0.42, 0, 0, 0, p);
     add(B(0.07, 2.24, 0.07), gun,   0, 1.60, 0.80, 0, 0, 0, p);
   }

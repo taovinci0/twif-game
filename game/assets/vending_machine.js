@@ -1,7 +1,21 @@
-// vending_machine — candidate B: swept profiles.
+// vending_machine — upright cabinet, 1.00 x 1.90 x 0.75 m.
+//
+// Chosen from three candidates by looking at the verifier sheet. The swept
+// version won on the front: rounded carcass corners and round push-buttons read
+// as a manufactured machine where the primitive version's flat rectangular
+// buttons merged into their backing plate, and the three-assembly version's
+// pale side rails read as scaffolding bolted to a locker.
+//
+// Refined after the pick: side access hatches with bolt heads and a lever, so
+// the sides carry structure instead of being a plain slab.
+//
 // The carcass is one rounded-corner plan profile extruded upward; the front
 // frame is a single Shape with four holes, so stiles and rails come out of one
 // sweep; feet are lathed pucks; the back grille is a corrugated sweep.
+//
+// TEXTURE-READY BLANK PANEL (no glyphs anywhere in this module):
+//   display 0.63 x 1.12 m, centre (-0.115, 1.16, +0.360), facing +Z.
+//   Its material is named 'plaster' so the lighting system makes it emit.
 export default function (THREE) {
   const g = new THREE.Group();
   const M = (color, roughness, name, metalness = 0) => {
@@ -15,6 +29,10 @@ export default function (THREE) {
   const panel = M(0xE7DFC9, 0.62, 'plaster');       // <- lit display field
   const lit   = M(0xE66D32, 0.66, 'plaster');
   const foot  = M(0x111315, 0.90, 'stone');
+  // Scuffed alloy for the small side hardware. The sides of this machine sit in
+  // shade, and relief alone leaves them reading as a blank slab, so the side
+  // fittings carry their contrast in albedo as well as in depth.
+  const alloy = M(0x8C816F, 0.66, 'metal', 0.45);
 
   const add = (geo, mat, x, y, z, rx = 0, ry = 0) => {
     const m = new THREE.Mesh(geo, mat);
@@ -41,13 +59,12 @@ export default function (THREE) {
   };
 
   // ---- carcass: plan profile swept upward ---------------------------------
-  add(ex(rrect(0.46, 0.34, 0.07), 1.71), shell, 0, 0.07, 0, -Math.PI / 2);
+  add(ex(rrect(0.44, 0.34, 0.07), 1.71), shell, 0, 0.07, 0, -Math.PI / 2);
 
   // ---- lathed feet --------------------------------------------------------
   const puck = new THREE.LatheGeometry([
     new THREE.Vector2(0.00, 0.00), new THREE.Vector2(0.075, 0.00),
-    new THREE.Vector2(0.070, 0.045), new THREE.Vector2(0.045, 0.07),
-    new THREE.Vector2(0.00, 0.07),
+    new THREE.Vector2(0.060, 0.055), new THREE.Vector2(0.00, 0.07),
   ], 6);
   for (const x of [-0.35, 0.35]) for (const z of [-0.23, 0.23]) add(puck, foot, x, 0, z);
 
@@ -106,13 +123,16 @@ export default function (THREE) {
   box(0.62, 0.30, 0.04, trim, 0, 0.18, -0.352);
   add(new THREE.CylinderGeometry(0.02, 0.02, 0.26, 6), trim, -0.26, 0.12, -0.35, 0, 0);
 
-  // ---- side rails, ribs and hand-holds -----------------------------------
+  // ---- sides: corner rails, bolted access hatch, service conduit ---------
   for (const s of [-1, 1]) {
-    box(0.04, 1.64, 0.10, trim, s * 0.48, 0.92, 0.29);
-    box(0.04, 1.64, 0.12, trim, s * 0.48, 0.92, -0.28);
-    for (const y of [0.42, 0.96, 1.50]) box(0.03, 0.06, 0.46, trim, s * 0.475, y, 0.01);
-    box(0.035, 0.20, 0.09, dark, s * 0.478, 1.64, -0.06);
-    box(0.035, 0.09, 0.09, dark, s * 0.478, 0.30, -0.06);
+    box(0.06, 1.64, 0.10, trim, s * 0.47, 0.92, 0.29);
+    box(0.06, 1.64, 0.12, trim, s * 0.47, 0.92, -0.28);
+    box(0.045, 0.66, 0.34, dark, s * 0.462, 1.00, 0.06);     // access hatch
+    for (const z of [-0.06, 0.18]) box(0.02, 0.05, 0.05, alloy, s * 0.489, 1.28, z);
+    box(0.03, 0.07, 0.20, alloy, s * 0.485, 0.74, 0.14);     // lever handle
+    add(new THREE.CylinderGeometry(0.035, 0.035, 1.26, 6), alloy, s * 0.462, 0.86, -0.16);
+    box(0.05, 0.16, 0.14, dark, s * 0.468, 1.57, -0.16);      // junction box
+    for (const y of [0.35, 1.30]) box(0.055, 0.05, 0.10, alloy, s * 0.465, y, -0.16);
   }
 
   // ---- contract: base at y=0, centred on x and z --------------------------
