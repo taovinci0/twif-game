@@ -42,6 +42,16 @@ export class Mission {
   /** Where the objective currently is, in metres. Telemetry for the gate. */
   waypoint() {
     const X = SUB.x;
+    // mid-fight the objective IS the nearest live enemy
+    if (this.liveEnemies > 0 && (this.stage === 'tutorial' || this.stage === 'arena')) {
+      let best = null, bd = Infinity;
+      for (const e of this.group) {
+        if (e.dead) continue;
+        const dd = Math.hypot(e.pos.x - this.player.pos.x, e.pos.z - this.player.pos.z);
+        if (dd < bd) { bd = dd; best = e; }
+      }
+      if (best) return [best.pos.x, best.pos.z];
+    }
     switch (this.stage) {
       case 'hub':      return [this.hub.activePos.x, this.hub.activePos.z];
       case 'arrive':
@@ -105,7 +115,8 @@ export class Mission {
       }
       case 'tutorial': {
         this.objective = 'Find Max Sensei';
-        if (d(SUB.x, SUB.tutorialZ) < 5 && this.enemies.length === 0) {
+        const pastMax = p.pos.z <= SUB.tutorialZ + 6;
+        if ((d(SUB.x, SUB.tutorialZ) < 7 || pastMax) && this.enemies.length === 0) {
           this.encounter();
           this.spawn(SUB.x - 4, SUB.tutorialZ - 8);
           this.spawn(SUB.x + 4, SUB.tutorialZ - 11);

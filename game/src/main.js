@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { CAM, MAX_DT, HUB, SUB, PLAYER, clamp, damp } from './config.js';
 import { Input } from './input.js';
-import { buildHub, buildSubnet, MAT } from './world.js';
+import { buildHub, buildSubnet, makeBeacon, MAT } from './world.js';
 import { Player, Van } from './entities.js';
 import { Mission } from './mission.js';
 
@@ -60,6 +60,8 @@ const input = new Input();
 const player = new Player(scene);
 const van = new Van(scene);
 const mission = new Mission(scene, hub, sub, player, van);
+const beacon = makeBeacon();
+scene.add(beacon);
 world.show('hub');
 player.teleport(HUB.x, HUB.z + 6, Math.PI);
 
@@ -72,17 +74,22 @@ const ui = {
   start: el('start'), startp: el('startp'), startb: el('startb'),
   over: el('over'), overh: el('overh'), overp: el('overp'), overb: el('overb'),
   perf: el('perf'),
+  wayrow: el('wayrow'), wayarrow: el('wayarrow'), waydist: el('waydist'), hint: el('hint'),
 };
 ui.startp.innerHTML = input.isTouch
   ? 'Left thumb to move &middot; drag the right side to look<br>ATK to strike &middot; DGE to dodge &middot; ACT to interact'
   : '<kbd>WASD</kbd> move &middot; drag to look &middot; <kbd>J</kbd> or click strike<br><kbd>Space</kbd> dodge &middot; <kbd>E</kbd> interact';
 
-let toastT = 0;
+let toastT = 0, hintT = 0;
 function toast(msg) { if (!msg) return; ui.toast.textContent = msg; toastT = 2.2; }
 
 // ---------------------------------------------------------------- state
 let running = false, over = false, won = false;
 let camYaw = Math.PI, camPitch = 0.12;
+// After a new objective appears the camera eases round to face it, so the player
+// is never left looking at the wrong quarter of a ring of 128 identical gates.
+// Any look input cancels it immediately — the camera is still theirs.
+let assistYaw = null, assistT = 0, lastStage = null;
 const camPos = new THREE.Vector3();
 const camAim = new THREE.Vector3();
 
@@ -105,6 +112,11 @@ function startGame() {
   ui.start.classList.remove('on');
   ui.over.classList.remove('on');
   ui.hud.classList.add('on');
+  ui.hint.textContent = input.isTouch
+    ? 'LEFT THUMB TO MOVE  ·  FOLLOW THE MARKER'
+    : 'WASD TO MOVE  ·  FOLLOW THE MARKER';
+  ui.hint.classList.add('on');
+  hintT = 6;
   last = performance.now();
 }
 window.__START__ = startGame;
@@ -194,6 +206,7 @@ function step(dt) {
   const sens = input.isTouch ? CAM.touchSens : CAM.mouseSens;
   camYaw -= look.x * sens;
   camPitch = clamp(camPitch + look.y * sens, CAM.minPitch, CAM.maxPitch);
+  if (look.x || look.y) { assistYaw = null; assistT = 0; }
 
   // ---- drive or walk
   if (player.inVan) {
@@ -248,6 +261,45 @@ function step(dt) {
 
   key.target.position.set(target.x, 0, target.z);
   key.position.set(target.x - 40, 60, target.z + 20);
+
+  // ---- wayfinding
+  const wp = mission.waypoint();
+  if (wp && !mission.done) {
+    const dx = wp[0] - player.pos.x, dz = wp[1] - player.pos.z;
+    const dist = Math.hypot(dx, dz);
+    beacon.visible = true;
+    beacon.position.set(wp[0], 0, wp[1]);
+    beacon.userData.pulse(performance.now() / 1000);
+
+    // a new objective turns the camera toward it
+    if (mission.stage !== lastStage) {
+      lastStage = mission.stage;
+      assistYaw = Math.atan2(-dx, -dz);
+      assistT = 1.1;
+    }
+    if (assistYaw !== null && assistT > 0) {
+      assistT -= dt;
+      let d = (assistYaw - camYaw) % (Math.PI * 2);
+      if (d > Math.PI) d -= Math.PI * 2;
+      if (d < -Math.PI) d += Math.PI * 2;
+      camYaw += d * (1 - Math.exp(-4.5 * dt));
+      if (assistT <= 0) assistYaw = null;
+    }
+
+    // screen-relative arrow: 0deg is straight ahead
+    const nx = dx / (dist || 1), nz = dz / (dist || 1);
+    const fwd = nx * -Math.sin(camYaw) + nz * -Math.cos(camYaw);
+    const rgt = nx * Math.cos(camYaw) + nz * -Math.sin(camYaw);
+    const ang = Math.atan2(rgt, fwd) * 180 / Math.PI;
+    ui.wayarrow.style.transform = 'rotate(' + ang.toFixed(1) + 'deg)';
+    ui.waydist.textContent = dist < 4 ? 'HERE' : Math.round(dist) + ' m';
+    ui.wayrow.style.visibility = 'visible';
+  } else {
+    beacon.visible = false;
+    ui.wayrow.style.visibility = 'hidden';
+  }
+
+  if (hintT > 0) { hintT -= dt; if (hintT <= 0) ui.hint.classList.remove('on'); }
 
   // ---- hud
   ui.objs.textContent = mission.objective;

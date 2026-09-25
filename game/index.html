@@ -45,6 +45,13 @@
     text-shadow:0 2px 6px #000}
   #obj .t{font-size:10px;letter-spacing:.3em;color:var(--gold)}
   #obj .s{font-size:clamp(14px,3.6vw,20px);letter-spacing:.06em;margin-top:4px}
+  #wayrow{margin-top:5px;display:inline-flex;align-items:center;gap:8px;font-size:11px;
+    letter-spacing:.16em;color:var(--green)}
+  #wayarrow{display:inline-block;width:13px;height:13px;transform-origin:50% 50%}
+  #wayarrow svg{display:block}
+  #hint{position:absolute;left:0;right:0;bottom:22%;text-align:center;font-size:11px;
+    letter-spacing:.16em;color:#8b9097;opacity:0;transition:opacity .4s;text-shadow:0 2px 8px #000}
+  #hint.on{opacity:1}
   #nodes{position:absolute;right:max(16px,env(safe-area-inset-right));top:max(16px,env(safe-area-inset-top));
     font-size:11px;letter-spacing:.2em;color:#8b9097;text-align:right;text-shadow:0 2px 6px #000}
   #nodes b{color:var(--green);font-weight:400}
@@ -100,11 +107,18 @@
 </div>
 
 <div id="hud">
-  <div id="obj"><div class="t">OBJECTIVE</div><div class="s" id="objs">—</div></div>
+  <div id="obj">
+    <div class="t">OBJECTIVE</div>
+    <div class="s" id="objs">—</div>
+    <div id="wayrow"><span id="wayarrow"><svg viewBox="0 0 12 12" width="13" height="13"
+      ><path d="M6 0.5 L11 11 L6 8.4 L1 11 Z" fill="currentColor"/></svg></span
+      ><span id="waydist">—</span></div>
+  </div>
   <div id="nodes">NETWORK <b id="ncount">0</b> / 128</div>
   <div id="vit"><div class="lab">VITALS</div><div id="hpbar"><div id="hpfill"></div></div></div>
   <div id="speedo"><div class="n" id="spd">0</div><div class="u">KM/H</div></div>
   <div id="prompt"></div>
+  <div id="hint"></div>
   <div id="toast"></div>
   <div id="perf"></div>
 </div>

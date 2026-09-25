@@ -239,3 +239,35 @@ export function makeVan() {
   }
   return g;
 }
+
+/** The objective marker: a beam you can see across the district and a ring on
+ *  the ground under it. Two draw calls, unlit, no shadow — this is wayfinding,
+ *  not lighting. Without it the hub is 128 near-identical gates and the player
+ *  is told what to do but never where. */
+export function makeBeacon() {
+  const g = new THREE.Group();
+  const beamMat = new THREE.MeshBasicMaterial({
+    color: 0x9AFF43, transparent: true, opacity: 0.16,
+    side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 1.4, 60, 10, 1, true), beamMat);
+  beam.position.y = 30;
+  g.add(beam);
+
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0x9AFF43, transparent: true, opacity: 0.5,
+    side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.9, 2.4, 28), ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.06;
+  g.add(ring);
+
+  g.userData.pulse = (t) => {
+    const k = 0.5 + Math.sin(t * 2.4) * 0.5;
+    ring.scale.setScalar(1 + k * 0.22);
+    ringMat.opacity = 0.34 + k * 0.3;
+    beamMat.opacity = 0.11 + k * 0.09;
+  };
+  return g;
+}
