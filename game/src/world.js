@@ -3,6 +3,7 @@
 // scales in STYLE_LOCK.md so the replacement drops straight in.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { ASSET } from '../assetlib.js';
 import { SCALE, HUB, SUB } from './config.js';
 
 const M = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.82, ...opts });
@@ -22,6 +23,66 @@ export const MAT = {
   lantern: M(0xE66D32, { emissive: 0xE66D32, emissiveIntensity: 1.5 }),
   artefact:M(0x9AFF43, { emissive: 0x9AFF43, emissiveIntensity: 2.0 }),
 };
+
+// ---------------------------------------------------------------- generated assets
+let GATE = null;
+
+/** Load every generated module before the game is startable. An asset that fails
+ *  to import prints one line and the level carries on emptier than it should be,
+ *  so this throws instead: an empty level is fast, and the frame rate gate sees
+ *  nothing wrong with it. */
+export async function loadAssets(onProgress = () => {}) {
+  onProgress(0.2, 'subnet gate');
+  GATE = await ASSET('./assets/subnet_gate.js', { surfaces: true });
+  let meshes = 0;
+  GATE.traverse((n) => { if (n.isMesh) meshes++; });
+  if (!meshes) throw new Error('subnet_gate.js loaded empty');
+  onProgress(1, 'ready');
+}
+
+/** A fresh copy of the gate. */
+export function gateInstance() {
+  const g = GATE.clone();
+  // Clone the materials too. A bare clone() shares them, so lighting one gate
+  // would light all 128 of them at once.
+  g.traverse((n) => {
+    if (!n.isMesh) return;
+    n.material = n.material.clone();
+    n.castShadow = true; n.receiveShadow = true;
+  });
+  return g;
+}
+
+/** Light a gate by making its lantern panels and threshold disc emit, rather
+ *  than making the whole monument glow. 'plaster' is the panel material. */
+export function litGate(gate, color = 0x9AFF43, intensity = 1.5) {
+  gate.traverse((n) => {
+    if (!n.isMesh || !n.material) return;
+    if (n.material.name === 'plaster') {
+      n.material.emissive = new THREE.Color(color);
+      n.material.emissiveIntensity = intensity;
+    }
+  });
+}
+
+/** Turn a loaded asset into InstancedMeshes — one per material, not one per copy.
+ *  127 dormant nodes cost about five draw calls this way instead of 127 times
+ *  whatever the gate costs. */
+function instancedFrom(proto, count, material = null) {
+  const group = new THREE.Group();
+  const parts = [];
+  proto.updateMatrixWorld(true);
+  proto.traverse((n) => { if (n.isMesh) parts.push(n); });
+  for (const mesh of parts) {
+    const geo = mesh.geometry.clone();
+    geo.applyMatrix4(mesh.matrixWorld);          // bake the part's own transform in
+    const im = new THREE.InstancedMesh(geo, material || mesh.material, count);
+    im.frustumCulled = false;
+    im.castShadow = true;
+    group.add(im);
+  }
+  return group;
+}
 
 /** One gate, 5.5 m tall (canon). Two posts and a lintel, merged so a ring of
  *  128 of them is a single InstancedMesh and a single draw call. */
@@ -51,10 +112,10 @@ export function buildHub() {
   idol.position.y = 2.5; idol.rotation.y = Math.PI / 4; g.add(idol);
   blockers.push({ x: HUB.x, z: HUB.z, hx: 4.2, hz: 4.2 });
 
-  // 127 dormant gates, instanced. The active one is a separate mesh so it can
+  // 127 dormant gates, instanced. The active one is a separate copy so it can
   // glow and be tested against without touching the instance buffer.
-  const geo = gateGeometry();
-  const dormant = new THREE.InstancedMesh(geo, MAT.dormant, HUB.gates - 1);
+  const proto = gateInstance();
+  const dormant = instancedFrom(proto, HUB.gates - 1, MAT.dormant);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1);
   const v = new THREE.Vector3();
   let n = 0;
@@ -67,13 +128,14 @@ export function buildHub() {
     v.set(x, 0, z);
     q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -a + Math.PI / 2);
     m.compose(v, q, s);
-    dormant.setMatrixAt(n++, m);
+    for (const im of dormant.children) im.setMatrixAt(n, m);
+    n++;
   }
-  dormant.instanceMatrix.needsUpdate = true;
-  dormant.frustumCulled = false;
+  for (const im of dormant.children) im.instanceMatrix.needsUpdate = true;
   g.add(dormant);
 
-  const active = new THREE.Mesh(geo, MAT.active);
+  const active = gateInstance();
+  litGate(active);
   active.position.copy(activePos);
   active.rotation.y = -(HUB.activeIndex / HUB.gates) * Math.PI * 2 + Math.PI / 2;
   g.add(active);
@@ -98,8 +160,8 @@ export function buildSubnet() {
   g.add(ground);
 
   // arrival gate, behind the player
-  const gateGeo = gateGeometry();
-  const arrival = new THREE.Mesh(gateGeo, MAT.active);
+  const arrival = gateInstance();
+  litGate(arrival);
   arrival.position.set(X, 0, SUB.spawnZ + 5);
   g.add(arrival);
 
@@ -197,7 +259,8 @@ export function buildSubnet() {
   blockers.push({ x: X, z: SUB.arenaZ, hx: 1.4, hz: 1.4 });
 
   // return gate, lit once the artefact is taken
-  const ret = new THREE.Mesh(gateGeo, MAT.dormant);
+  const ret = gateInstance();
+  ret.rotation.y = Math.PI;
   ret.position.set(X, 0, SUB.returnZ);
   g.add(ret);
 

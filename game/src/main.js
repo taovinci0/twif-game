@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { CAM, MAX_DT, HUB, SUB, PLAYER, clamp, damp } from './config.js';
 import { Input } from './input.js';
-import { buildHub, buildSubnet, makeBeacon, MAT } from './world.js';
+import { buildHub, buildSubnet, makeBeacon, loadAssets, MAT } from './world.js';
 import { Player, Van } from './entities.js';
 import { Mission } from './mission.js';
 
@@ -43,6 +43,19 @@ key.shadow.camera.top = sc; key.shadow.camera.bottom = -sc;
 scene.add(key, key.target);
 
 // ---------------------------------------------------------------- world
+// Generated modules load before anything is built, and before __READY__. An
+// asset that fails to import would otherwise leave the level quietly emptier
+// than it should be — and an empty level is fast, so no frame rate check
+// notices.
+{
+  const bar = document.getElementById('barf');
+  const msg = document.getElementById('loadmsg');
+  await loadAssets((p, label) => {
+    bar.style.width = Math.round(p * 100) + '%';
+    if (label) msg.textContent = label;
+  });
+}
+
 const hub = buildHub();
 const sub = buildSubnet();
 scene.add(hub.group, sub.group);

@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { SUB, HUB, SCALE, PLAYER } from './config.js';
 import { Enemy } from './entities.js';
-import { makeFigure, MAT } from './world.js';
+import { makeFigure, litGate, MAT } from './world.js';
 
 export const STAGES = [
   'hub', 'arrive', 'tutorial', 'street', 'van', 'drive', 'arena', 'artefact', 'return', 'complete',
@@ -195,7 +195,7 @@ export class Mission {
           this.go('return');
           this.artefact.visible = false;
           this.artefactLight.intensity = 0;
-          this.sub.returnGate.material = MAT.active;
+          litGate(this.sub.returnGate);
           toast = 'ARTEFACT SECURED';
         }
         break;
@@ -207,7 +207,7 @@ export class Mission {
           this.nodes = 1;
           world.show('hub');
           p.teleport(HUB.x + HUB.ringRadius - 4, HUB.z, Math.PI);
-          this.hub.activeMesh.material = MAT.active;
+          litGate(this.hub.activeMesh);
           this.done = true;
           toast = '1 / 128 COMPLETE';
         }
