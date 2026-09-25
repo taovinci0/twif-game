@@ -1,0 +1,5 @@
+node_modules/
+_verify/
+_playtest/
+.DS_Store
+*.log
