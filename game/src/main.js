@@ -19,20 +19,20 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.28;
 renderer.info.autoReset = false;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0d12);
-scene.fog = new THREE.Fog(0x0a0d12, 60, 260);
+scene.background = new THREE.Color(0x121a26);
+scene.fog = new THREE.Fog(0x121a26, 70, 300);
 
 const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 900);
 
 // Greybox lighting. Deliberately cheap: the rig goes in at the polish stage,
 // measured on the phone tier, because it costs three times the draw calls.
-const hemi = new THREE.HemisphereLight(0x8fb4d8, 0x14171a, 0.55);
+const hemi = new THREE.HemisphereLight(0x8fb4d8, 0x1a1e24, 0.95);
 scene.add(hemi);
-const key = new THREE.DirectionalLight(0xffd9a8, 1.15);
+const key = new THREE.DirectionalLight(0xffd9a8, 1.55);
 key.position.set(-40, 60, 20);
 key.castShadow = true;
 key.shadow.mapSize.set(1024, 1024);

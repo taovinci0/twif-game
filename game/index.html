@@ -15,7 +15,14 @@
 </script>
 <link rel="icon" href="data:,">
 <style>
-  :root{--green:#9AFF43;--gold:#D4A24C;--amber:#E66D32;--ink:#E7DFC9;--bg:#080A0B;}
+  :root{
+    --green:#9AFF43;--gold:#D4A24C;--amber:#E66D32;--ink:#E7DFC9;--bg:#080A0B;
+    --dim:#969ba1;--faint:#71767c;
+    --panel:rgba(9,11,13,.62);--edge:rgba(231,223,201,.20);
+    /* Condensed gothic for HUD chrome, monospace everywhere else. */
+    --ui:"Avenir Next Condensed","DIN Alternate","Roboto Condensed","Oswald","Arial Narrow",ui-monospace,Menlo,sans-serif;
+    --sh:0 1px 3px rgba(0,0,0,.95),0 0 12px rgba(0,0,0,.55);
+  }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
     font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
@@ -39,40 +46,178 @@
   #barf{height:100%;width:0;background:var(--green);transition:width .15s linear}
   #loadmsg{font-size:11px;color:#585d63;letter-spacing:.14em;height:14px}
 
-  #hud{position:fixed;inset:0;z-index:12;display:none;pointer-events:none}
+  /* ------------------------------------------------------------------ hud */
+  #hud{position:fixed;inset:0;z-index:12;display:none;pointer-events:none;
+    font-family:var(--ui);text-shadow:var(--sh);-webkit-font-smoothing:antialiased}
   #hud.on{display:block}
-  #obj{position:absolute;left:0;right:0;top:max(16px,env(safe-area-inset-top));text-align:center;
-    text-shadow:0 2px 6px #000}
-  #obj .t{font-size:10px;letter-spacing:.3em;color:var(--gold)}
-  #obj .s{font-size:clamp(14px,3.6vw,20px);letter-spacing:.06em;margin-top:4px}
-  #wayrow{margin-top:5px;display:inline-flex;align-items:center;gap:8px;font-size:11px;
-    letter-spacing:.16em;color:var(--green)}
-  #wayarrow{display:inline-block;width:13px;height:13px;transform-origin:50% 50%}
-  #wayarrow svg{display:block}
-  #hint{position:absolute;left:0;right:0;bottom:22%;text-align:center;font-size:11px;
-    letter-spacing:.16em;color:#8b9097;opacity:0;transition:opacity .4s;text-shadow:0 2px 8px #000}
-  #hint.on{opacity:1}
-  #nodes{position:absolute;right:max(16px,env(safe-area-inset-right));top:max(16px,env(safe-area-inset-top));
-    font-size:11px;letter-spacing:.2em;color:#8b9097;text-align:right;text-shadow:0 2px 6px #000}
-  #nodes b{color:var(--green);font-weight:400}
-  #vit{position:absolute;left:max(18px,env(safe-area-inset-left));bottom:max(18px,env(safe-area-inset-bottom));
-    text-shadow:0 2px 6px #000}
-  #vit .lab{font-size:9px;letter-spacing:.26em;color:#8b9097}
-  #hpbar{width:150px;height:4px;background:rgba(255,255,255,.14);margin-top:5px}
+
+  /* ---- objective panel ------------------------------------------------- */
+  #objpanel{position:absolute;left:max(18px,env(safe-area-inset-left));
+    top:max(16px,env(safe-area-inset-top));min-width:250px;max-width:min(330px,42vw);
+    padding:8px 16px 10px 12px;border-left:2px solid var(--gold);
+    background:linear-gradient(90deg,rgba(8,10,12,.76),rgba(8,10,12,.30) 88%,rgba(8,10,12,0))}
+  #objhead{display:flex;align-items:center;gap:8px;padding-bottom:7px;
+    border-bottom:1px solid rgba(212,162,76,.34)}
+  #objglyph{width:13px;height:13px;flex:0 0 auto;color:var(--gold);display:block}
+  #objglyph svg{display:block;width:13px;height:13px}
+  #objtitle{font-size:12px;font-weight:600;letter-spacing:.2em;color:var(--gold);
+    text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #objlist{list-style:none;margin:9px 0 0;padding:0;display:flex;flex-direction:column;gap:7px}
+  #objlist li{display:flex;align-items:center;gap:9px;font-size:13px;letter-spacing:.02em;
+    color:#a9aeb4;line-height:1.15}
+  #objlist li .bx{width:11px;height:11px;flex:0 0 auto;position:relative;
+    border:1px solid rgba(231,223,201,.42)}
+  #objlist li .tx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #objlist li .cnt{margin-left:auto;padding-left:10px;font-size:11px;letter-spacing:.12em;color:var(--gold)}
+  #objlist li.done{color:#767b81}
+  #objlist li.done .bx{border-color:rgba(154,255,67,.45)}
+  #objlist li.done .bx::after{content:'';position:absolute;left:2px;top:0;width:4px;height:8px;
+    border:solid var(--green);border-width:0 1.5px 1.5px 0;transform:rotate(42deg)}
+  #objlist li.cur{color:var(--ink)}
+  #objlist li.cur .bx{transform:rotate(45deg);border-color:var(--gold);
+    box-shadow:0 0 9px rgba(212,162,76,.45)}
+  #objlist li.cur .bx::after{content:'';position:absolute;inset:2px;background:var(--green)}
+
+  /* ---- compass strip ---------------------------------------------------- */
+  #compass{position:absolute;left:50%;transform:translateX(-50%);
+    top:max(14px,env(safe-area-inset-top));width:min(560px,42vw);height:36px}
+  #cline{position:absolute;left:0;right:0;top:19px;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(231,223,201,.55) 14%,rgba(231,223,201,.55) 86%,transparent)}
+  #cticks{position:absolute;inset:0;overflow:hidden}
+  .ct{position:absolute;left:50%;top:15px;width:1px;height:5px;background:rgba(231,223,201,.4)}
+  .ct.mj{top:13px;height:7px;background:rgba(231,223,201,.85)}
+  .ct .cl{position:absolute;left:50%;transform:translateX(-50%);bottom:9px;
+    font-size:12px;font-weight:600;letter-spacing:.14em;color:var(--ink)}
+  #wayrow{position:absolute;inset:0}
+  #waymark{position:absolute;left:50%;top:11px;width:14px;height:14px;margin-left:-7px;color:var(--gold)}
+  #wayarrow{display:block;width:14px;height:14px;transform-origin:50% 50%;color:var(--gold)}
+  #wayarrow svg{display:block;width:14px;height:14px}
+  #waydist{position:absolute;left:50%;top:25px;transform:translateX(-50%);
+    font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--gold);white-space:nowrap}
+
+  /* ---- network counter --------------------------------------------------- */
+  #nodes{position:absolute;right:max(18px,env(safe-area-inset-right));
+    top:max(16px,env(safe-area-inset-top));font-size:11px;letter-spacing:.2em;color:var(--dim);
+    text-align:right}
+  #nodes b{color:var(--green);font-weight:600}
+
+  /* ---- vitals ------------------------------------------------------------ */
+  #vit{position:absolute;left:max(18px,env(safe-area-inset-left));
+    bottom:calc(max(18px,env(safe-area-inset-bottom)) + 62px);display:flex;align-items:center;gap:13px}
+  #portrait{width:38px;height:38px;flex:0 0 auto;transform:rotate(45deg);
+    border:1px solid var(--gold);background:rgba(8,10,12,.78);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+    box-shadow:0 0 12px rgba(0,0,0,.6)}
+  #portrait svg{transform:rotate(-45deg);width:30px;height:30px;display:block}
+  #vbars .lab{font-size:9px;letter-spacing:.26em;color:var(--dim);margin-bottom:4px}
+  #hpbar{position:relative;width:176px;height:9px;background:rgba(6,8,9,.72);
+    border:1px solid rgba(231,223,201,.32)}
   #hpfill{height:100%;width:100%;background:var(--green);transition:width .12s}
-  #prompt{position:absolute;left:0;right:0;bottom:30%;text-align:center;font-size:12px;
-    letter-spacing:.18em;color:var(--gold);opacity:0;transition:opacity .2s;text-shadow:0 2px 8px #000}
-  #prompt.on{opacity:1}
-  #toast{position:absolute;left:0;right:0;top:40%;text-align:center;font-size:13px;
-    letter-spacing:.2em;color:var(--green);opacity:0;text-shadow:0 2px 8px #000}
+  #hpseg{position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 2px),rgba(6,8,9,.92) calc(10% - 2px) 10%)}
+  #focus{display:flex;gap:5px;margin-top:5px}
+  #focus i{width:7px;height:7px;border-radius:50%;border:1px solid rgba(231,223,201,.42);
+    background:rgba(231,223,201,.75)}
+  #focus i.off{background:transparent}
+
+  /* ---- ability row -------------------------------------------------------- */
+  #abil{position:absolute;left:max(18px,env(safe-area-inset-left));
+    bottom:max(18px,env(safe-area-inset-bottom));display:flex;gap:9px}
+  .ab{position:relative;width:44px;height:44px;border:1px solid rgba(231,223,201,.30);
+    background:linear-gradient(160deg,rgba(24,27,30,.66),rgba(8,10,12,.74));
+    display:flex;align-items:center;justify-content:center;color:var(--ink);
+    box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  .ab svg{display:block;width:22px;height:22px}
+  .ab .k{position:absolute;left:-1px;bottom:-1px;min-width:14px;height:13px;padding:0 3px;
+    border:1px solid rgba(231,223,201,.30);background:rgba(8,10,12,.92);
+    font-size:9px;line-height:11px;text-align:center;letter-spacing:.06em;color:var(--dim)}
+  .ab.hero{border-color:var(--gold);color:var(--gold);
+    background:linear-gradient(160deg,rgba(60,44,18,.55),rgba(8,10,12,.78))}
+  .ab.hero .k{border-color:rgba(212,162,76,.6);color:var(--gold)}
+
+  /* ---- minimap ------------------------------------------------------------ */
+  #map{position:absolute;right:max(18px,env(safe-area-inset-right));
+    bottom:max(18px,env(safe-area-inset-bottom));width:152px;height:152px;border-radius:50%;
+    overflow:hidden;border:1px solid rgba(231,223,201,.32);background:rgba(8,10,12,.55);
+    box-shadow:0 0 0 4px rgba(8,10,12,.45),0 8px 22px rgba(0,0,0,.55)}
+  #mmap{display:block;width:100%;height:100%}
+  #map .nn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) translateY(-64px);
+    font-size:10px;font-weight:600;letter-spacing:.12em;color:var(--ink)}
+
+  /* ---- speed + gear (driving) --------------------------------------------- */
   #speedo{position:absolute;right:max(18px,env(safe-area-inset-right));
-    bottom:max(18px,env(safe-area-inset-bottom));text-align:right;display:none;text-shadow:0 2px 6px #000}
-  #speedo.on{display:block}
-  #speedo .n{font-size:30px;line-height:1}
-  #speedo .u{font-size:9px;letter-spacing:.24em;color:#8b9097}
-  #perf{position:absolute;left:max(18px,env(safe-area-inset-left));top:max(16px,env(safe-area-inset-top));
-    font-size:9px;color:#5f646a;letter-spacing:.06em;line-height:1.7;display:none}
+    bottom:max(18px,env(safe-area-inset-bottom));display:none;align-items:center;gap:12px;
+    padding:8px 14px 8px 10px;border-bottom:2px solid var(--gold);
+    background:linear-gradient(180deg,rgba(8,10,12,.42),rgba(8,10,12,.88))}
+  #speedo.on{display:flex}
+  #sdial{position:relative;width:112px;height:62px}
+  #sdial svg{display:block;width:112px;height:62px}
+  #sread{position:absolute;left:0;right:0;bottom:2px;text-align:center}
+  #speedo .n{font-size:32px;line-height:.92;font-weight:600;letter-spacing:.02em;color:var(--ink)}
+  #speedo .u{font-size:9px;letter-spacing:.24em;color:var(--dim);margin-top:2px}
+  #gearb{width:42px;height:42px;border-radius:50%;border:1px solid rgba(231,223,201,.34);
+    background:rgba(8,10,12,.7);display:flex;flex-direction:column;align-items:center;
+    justify-content:center;line-height:1}
+  #gear{font-size:18px;font-weight:600;color:var(--ink)}
+  #gearb span{font-size:7px;letter-spacing:.18em;color:var(--dim);margin-top:2px}
+
+  /* ---- driving control hints ---------------------------------------------- */
+  #dhints{position:absolute;right:max(18px,env(safe-area-inset-right));top:50%;
+    transform:translateY(-50%);display:none;flex-direction:column;gap:7px;font-size:11px;
+    letter-spacing:.06em;color:var(--ink)}
+  #dhints div{display:flex;align-items:center;gap:8px}
+  #dhints b{min-width:20px;height:15px;padding:0 4px;border:1px solid rgba(231,223,201,.42);
+    background:rgba(8,10,12,.6);font-size:9px;font-weight:600;line-height:13px;text-align:center;
+    letter-spacing:.06em;color:var(--dim)}
+
+  /* ---- modes --------------------------------------------------------------- */
+  #hud.drive #abil,#hud.drive #vit{display:none}
+  #hud.drive #map{right:auto;left:max(18px,env(safe-area-inset-left))}
+  #hud.drive #dhints{display:flex}
+
+  /* ---- transient text ------------------------------------------------------ */
+  #hint{position:absolute;left:0;right:0;bottom:23%;text-align:center;font-size:11px;
+    letter-spacing:.18em;color:var(--dim);opacity:0;transition:opacity .4s}
+  #hint.on{opacity:1}
+  #prompt{position:absolute;left:0;right:0;bottom:31%;text-align:center;font-size:13px;
+    letter-spacing:.2em;color:var(--gold);opacity:0;transition:opacity .2s}
+  #prompt.on{opacity:1}
+  #toast{position:absolute;left:0;right:0;top:38%;text-align:center;font-size:15px;
+    font-weight:600;letter-spacing:.26em;color:var(--green);opacity:0}
+  #perf{position:absolute;left:max(18px,env(safe-area-inset-left));
+    top:calc(max(16px,env(safe-area-inset-top)) + 132px);font-family:ui-monospace,Menlo,monospace;
+    font-size:9px;color:#5f646a;letter-spacing:.06em;line-height:1.7;display:none;white-space:pre}
   #perf.on{display:block}
+
+  /* ---- phone --------------------------------------------------------------- */
+  @media (max-width:620px){
+    #compass{width:min(320px,80vw);height:32px}
+    #cline{top:17px} .ct{top:13px} .ct.mj{top:11px}
+    #waymark{top:9px} #waydist{top:22px;font-size:10px}
+    #objpanel{top:calc(max(16px,env(safe-area-inset-top)) + 38px);
+      min-width:0;max-width:56vw;padding:6px 10px 7px 8px}
+    #objhead{padding-bottom:5px} #objtitle{font-size:10px;letter-spacing:.14em}
+    #objglyph,#objglyph svg{width:11px;height:11px}
+    #objlist{margin-top:6px;gap:5px} #objlist li{font-size:11px;gap:7px}
+    #objlist li .bx{width:9px;height:9px}
+    #objlist li .cnt{font-size:10px;padding-left:6px}
+    #map{width:94px;height:94px;bottom:auto;top:calc(max(16px,env(safe-area-inset-top)) + 38px)}
+    #map .nn{font-size:8px}
+    #hud.drive #map{left:auto;right:max(14px,env(safe-area-inset-right))}
+    #nodes{top:calc(max(16px,env(safe-area-inset-top)) + 138px);font-size:9px;letter-spacing:.14em}
+    #abil{display:none}
+    #dhints{display:none!important}
+    #vit{bottom:max(14px,env(safe-area-inset-bottom));gap:9px}
+    #portrait{width:30px;height:30px} #portrait svg{width:24px;height:24px}
+    #vbars .lab{font-size:8px;margin-bottom:3px}
+    #hpbar{width:124px;height:8px}
+    #focus i{width:6px;height:6px}
+    #speedo{gap:8px;padding:6px 10px 6px 8px}
+    #sdial,#sdial svg{width:86px;height:48px}
+    #speedo .n{font-size:24px} #gearb{width:34px;height:34px} #gear{font-size:15px}
+    #perf{top:calc(max(16px,env(safe-area-inset-top)) + 172px)}
+    #toast{font-size:13px;letter-spacing:.18em}
+  }
 
   /* touch-action:none on every touch surface, not just the canvas. Without it a
      vertical drag on the thumbstick is claimed by the browser's pan gesture,
@@ -89,9 +234,10 @@
   #look{position:absolute;right:0;top:0;width:54%;height:100%}
   .tbtn{position:absolute;border-radius:50%;border:1.5px solid rgba(232,228,220,.32);
     background:rgba(16,18,20,.42);display:flex;align-items:center;justify-content:center;
-    font-size:10px;letter-spacing:.12em;color:#d6d2ca;user-select:none}
+    font-family:var(--ui);font-size:11px;font-weight:600;letter-spacing:.14em;color:#d6d2ca;
+    user-select:none;text-shadow:var(--sh)}
   .tbtn.dn{background:rgba(154,255,67,.26);border-color:var(--green)}
-  #batk{right:max(18px,env(safe-area-inset-right));bottom:24%;width:92px;height:92px;font-size:12px}
+  #batk{right:max(18px,env(safe-area-inset-right));bottom:24%;width:92px;height:92px;font-size:13px}
   #bact{right:max(116px,calc(env(safe-area-inset-right) + 116px));bottom:17%;width:64px;height:64px}
   #bdog{right:max(24px,env(safe-area-inset-right));bottom:11%;width:60px;height:60px}
 </style>
@@ -107,16 +253,89 @@
 </div>
 
 <div id="hud">
-  <div id="obj">
-    <div class="t">OBJECTIVE</div>
-    <div class="s" id="objs">—</div>
-    <div id="wayrow"><span id="wayarrow"><svg viewBox="0 0 12 12" width="13" height="13"
-      ><path d="M6 0.5 L11 11 L6 8.4 L1 11 Z" fill="currentColor"/></svg></span
-      ><span id="waydist">—</span></div>
+
+  <!-- objective panel: title + checklist. #objs is the CURRENT step's label and is
+       written to directly by main.js every frame; hud.js moves it between rows. -->
+  <div id="objpanel">
+    <div id="objhead">
+      <span id="objglyph"><svg viewBox="0 0 12 12"><path d="M6 .8 11.2 6 6 11.2.8 6Z" fill="none"
+        stroke="currentColor" stroke-width="1.4"/><path d="M6 3.6 8.4 6 6 8.4 3.6 6Z" fill="currentColor"/></svg></span>
+      <span id="objtitle">SUBNET ONE</span>
+    </div>
+    <ol id="objlist"><li class="cur"><span class="bx"></span><span class="tx" id="objs">—</span></li></ol>
   </div>
+
+  <!-- compass strip with the objective's bearing and range -->
+  <div id="compass">
+    <div id="cline"></div>
+    <div id="cticks"></div>
+    <div id="wayrow">
+      <span id="waymark"><span id="wayarrow"><svg viewBox="0 0 12 12"
+        ><path d="M6 0.5 L11 11 L6 8.4 L1 11 Z" fill="currentColor"/></svg></span></span>
+      <span id="waydist">—</span>
+    </div>
+  </div>
+
   <div id="nodes">NETWORK <b id="ncount">0</b> / 128</div>
-  <div id="vit"><div class="lab">VITALS</div><div id="hpbar"><div id="hpfill"></div></div></div>
-  <div id="speedo"><div class="n" id="spd">0</div><div class="u">KM/H</div></div>
+
+  <!-- portrait + segmented health -->
+  <div id="vit">
+    <div id="portrait"><svg viewBox="0 0 32 32">
+      <path d="M8.8 7.4 7.1 1.4l5.6 3.1Z" fill="#12171a"/>
+      <path d="M23.2 7.4 24.9 1.4l-5.6 3.1Z" fill="#12171a"/>
+      <path d="M16 2.6 26.2 7.9c.9 9.8-2.8 18.1-10.2 21.9C8.6 26 4.9 17.7 5.8 7.9Z" fill="#12171a"/>
+      <path d="M16 6.2c5 0 7.4 3 7 8.4-.4 5.6-3 9.6-7 11.6-4-2-6.6-6-7-11.6-.4-5.4 2-8.4 7-8.4Z" fill="#090c0d"/>
+      <path d="M10.4 14.9 15 12.9l-.5 3.3-4.1-.4Z" fill="#9AFF43"/>
+      <path d="M21.6 14.9 17 12.9l.5 3.3 4.1-.4Z" fill="#9AFF43"/>
+      <path d="M13.5 19.8h5L16 23.6Z" fill="#E7DFC9" opacity=".55"/>
+    </svg></div>
+    <div id="vbars">
+      <div class="lab">TWIF</div>
+      <div id="hpbar"><div id="hpfill"></div><div id="hpseg"></div></div>
+      <div id="focus"><i></i><i></i><i></i></div>
+    </div>
+  </div>
+
+  <!-- ability row (visual for now) -->
+  <div id="abil">
+    <div class="ab" data-k="1" title="Strike"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round"><path d="M20 3.5 9.5 14"/><path d="M12 11.5 14.5 14"/>
+      <path d="M6.2 15 9 17.8l-3.4 2.6-1.2-1.2Z"/></svg><span class="k">1</span></div>
+    <div class="ab" data-k="2" title="Shuriken"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.4" stroke-linejoin="round"><path d="M12 2.5 14.6 9.4 21.5 12l-6.9 2.6L12 21.5 9.4 14.6 2.5 12l6.9-2.6Z"/>
+      <circle cx="12" cy="12" r="1.6"/></svg><span class="k">2</span></div>
+    <div class="ab" data-k="3" title="Dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round"><path d="M4 8h10"/><path d="M3 12h13"/><path d="M5 16h8"/>
+      <path d="M16.5 7.5 21 12l-4.5 4.5"/></svg><span class="k">3</span></div>
+    <div class="ab hero" data-k="4" title="Focus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.4" stroke-linejoin="round"><path d="M5 11 6.8 4.6 11 8h2l4.2-3.4L19 11c0 6-3 10.5-7 10.5S5 17 5 11Z"/>
+      <path d="M9.4 12.2 11.8 11M14.6 12.2 12.2 11"/></svg><span class="k">4</span></div>
+  </div>
+
+  <!-- minimap -->
+  <div id="map"><canvas id="mmap"></canvas><span class="nn">N</span></div>
+
+  <!-- speed + gear, driving only -->
+  <div id="speedo">
+    <div id="sdial">
+      <svg viewBox="0 0 112 62">
+        <path d="M10 56 A46 46 0 0 1 102 56" fill="none" stroke="rgba(231,223,201,.18)" stroke-width="5"
+          stroke-linecap="round"/>
+        <path id="sarc" d="M10 56 A46 46 0 0 1 102 56" fill="none" stroke="#9AFF43" stroke-width="5"
+          stroke-linecap="round" stroke-dasharray="144.5" stroke-dashoffset="144.5"/>
+      </svg>
+      <div id="sread"><div class="n" id="spd">0</div><div class="u">KM/H</div></div>
+    </div>
+    <div id="gearb"><b id="gear">N</b><span>GEAR</span></div>
+  </div>
+
+  <div id="dhints">
+    <div><b>W</b>Accelerate</div>
+    <div><b>S</b>Brake / Reverse</div>
+    <div><b>A D</b>Steer</div>
+    <div><b>E</b>Leave the van</div>
+  </div>
+
   <div id="prompt"></div>
   <div id="hint"></div>
   <div id="toast"></div>
@@ -143,6 +362,7 @@
   <button class="btn pe" id="overb">RECONNECT</button>
 </div>
 
+<script type="module" src="./src/hud.js"></script>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ASSET } from '../assetlib.js';
+import { loadSignage, makeBanner, makePoster, makeFascia } from './signage.js';
 import { SCALE, HUB, SUB } from './config.js';
 
 const M = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.82, ...opts });
@@ -26,17 +27,93 @@ export const MAT = {
 
 // ---------------------------------------------------------------- generated assets
 let GATE = null;
+const CHARS = {};
+
+/** Load a generated module if it exists, and say so plainly if it does not.
+ *  Assets land from several agents at different times; a missing one must leave
+ *  the game playable on its greybox stand-in rather than taking the build down. */
+async function tryAsset(key, path, opts) {
+  try {
+    const a = await ASSET(path, opts);
+    let meshes = 0;
+    a.traverse((n) => { if (n.isMesh) meshes++; });
+    if (!meshes) { console.warn('[assets] ' + path + ' loaded empty, using greybox'); return; }
+    CHARS[key] = a;
+  } catch (e) {
+    console.warn('[assets] ' + path + ' unavailable, using greybox:', e.message);
+  }
+}
+
+/** A fresh copy of a generated character, or null if it has not landed yet. */
+export function charInstance(key) {
+  const proto = CHARS[key];
+  if (!proto) return null;
+  const g = proto.clone();
+
+  // clone() copies userData BY REFERENCE, so userData.joints and userData.visor
+  // still point at the prototype's meshes — every enemy would drive the same
+  // limbs and flare the same visor. Remap them onto this copy. Traversal order
+  // is identical for identical trees, so an index map is safe.
+  const from = [], to = [];
+  proto.traverse((n) => from.push(n));
+  g.traverse((n) => to.push(n));
+  const map = new Map();
+  for (let i = 0; i < from.length; i++) map.set(from[i], to[i]);
+  const remap = (o) => (o && map.get(o)) || null;
+
+  g.userData = { ...proto.userData };
+  if (proto.userData.joints) {
+    g.userData.joints = {};
+    for (const k of Object.keys(proto.userData.joints)) {
+      g.userData.joints[k] = remap(proto.userData.joints[k]);
+    }
+  }
+  if (proto.userData.parts) {
+    g.userData.parts = {};
+    for (const k of Object.keys(proto.userData.parts)) {
+      g.userData.parts[k] = remap(proto.userData.parts[k]);
+    }
+  }
+  if (proto.userData.visor) g.userData.visor = remap(proto.userData.visor);
+
+  g.traverse((n) => {
+    if (!n.isMesh) return;
+    n.material = n.material.clone();
+    n.castShadow = true;
+  });
+  return g;
+}
+export const hasChar = (key) => !!CHARS[key];
 
 /** Load every generated module before the game is startable. An asset that fails
  *  to import prints one line and the level carries on emptier than it should be,
  *  so this throws instead: an empty level is fast, and the frame rate gate sees
  *  nothing wrong with it. */
 export async function loadAssets(onProgress = () => {}) {
-  onProgress(0.2, 'subnet gate');
+  onProgress(0.15, 'signage');
+  await loadSignage();
+  onProgress(0.4, 'subnet gate');
   GATE = await ASSET('./assets/subnet_gate.js', { surfaces: true });
   let meshes = 0;
   GATE.traverse((n) => { if (n.isMesh) meshes++; });
   if (!meshes) throw new Error('subnet_gate.js loaded empty');
+  // Characters keep their hierarchy so limbs can move later; the contract is
+  // explicit that a merged character renders perfectly and can never move a limb,
+  // and no still frame shows you.
+  // Enemies load MERGED. With their hierarchy kept, one grunt is ~100 draw calls
+  // and the arena holds four at once — measured at 793 of a 900 budget with just
+  // two on screen. The contract's proper fix is to bake back per joint; until
+  // that exists they are merged, which costs their limb animation and visor
+  // flare but keeps the build inside its budget. The whole-body wind-up lean
+  // still reads.
+  onProgress(0.55, 'enforcers');
+  await tryAsset('grunt', './assets/big_ai_grunt.js', { surfaces: true });
+  onProgress(0.65, 'executive');
+  await tryAsset('boss', './assets/big_ai_boss.js', { surfaces: true });
+  onProgress(0.78, 'twif');
+  await tryAsset('twif', './assets/twif.js', { keepHierarchy: true, surfaces: true });
+  onProgress(0.9, 'subnet summer van');
+  await tryAsset('van', './assets/subnet_summer_van.js', { keepHierarchy: true, surfaces: true });
   onProgress(1, 'ready');
 }
 
@@ -264,10 +341,60 @@ export function buildSubnet() {
   ret.position.set(X, 0, SUB.returnZ);
   g.add(ret);
 
+  // ---- signage. Every glyph in this game is a texture on blank geometry.
+  // Lit signs each get a practical light: nothing glows without lighting its
+  // surroundings, which is the failure this domain is known for.
+  const lights = [];
+  const litSign = (obj, x, y, z, ry, color, range) => {
+    obj.position.set(x, y, z);
+    obj.rotation.y = ry;
+    g.add(obj);
+    const pl = new THREE.PointLight(color, 9, range, 2);
+    pl.position.set(x + Math.sin(ry) * 1.2, y - 0.2, z + Math.cos(ry) * 1.2);
+    g.add(pl);
+    lights.push(pl);
+    return obj;
+  };
+
+  const FACE_L = Math.PI / 2;    // left-hand buildings face +X, across the street
+  const FACE_R = -Math.PI / 2;   // right-hand buildings face -X
+
+  // the shopfront that anchors the street
+  litSign(makeFascia('sign_taomart', 5.6, MAT.metal), X + 7.9, 3.5, SUB.streetZ0 - 12, FACE_R, 0xE66D32, 17);
+
+  // hanging banners down both sides, alternating, breaking the silhouette
+  const banners = ['banner_build', 'banner_build', 'banner_build'];
+  let bnIdx = 0;
+  for (let i = 0; i < 6; i++) {
+    const z = SUB.streetZ0 - 8 - i * 17;
+    const left = i % 2 === 0;
+    const b = makeBanner(banners[bnIdx++ % banners.length], 2.6, MAT.charcoal);
+    b.position.set(X + (left ? -7.9 : 7.9), 5.4, z);
+    b.rotation.y = left ? FACE_L : FACE_R;
+    g.add(b);
+  }
+
+  // posters at eye height, where a player actually reads them
+  const posters = ['poster_mog', 'poster_gym', 'poster_max', 'poster_dare', 'poster_const'];
+  for (let i = 0; i < posters.length; i++) {
+    const z = SUB.streetZ0 - 20 - i * 19;
+    const left = i % 2 === 1;
+    const p = makePoster(posters[i], 1.9, MAT.charcoal);
+    p.position.set(X + (left ? -7.88 : 7.88), 2.4, z);
+    p.rotation.y = left ? FACE_L : FACE_R;
+    g.add(p);
+  }
+
+  // the dojo poster wall near Max, so the tutorial beat has somewhere to look
+  const gym = makePoster('poster_gym', 2.2, MAT.charcoal);
+  gym.position.set(X - 7.88, 2.8, SUB.tutorialZ - 4);
+  gym.rotation.y = FACE_L;
+  g.add(gym);
+
   return {
     group: g, blockers,
     returnGate: ret, returnPos: new THREE.Vector3(X, 0, SUB.returnZ),
-    nodeMesh: node, conePos,
+    nodeMesh: node, conePos, signLights: lights,
   };
 }
 

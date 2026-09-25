@@ -2,7 +2,7 @@
 // the mechanics are not: this is what the first milestone has to prove works.
 import * as THREE from 'three';
 import { PLAYER, GRUNT, BOSS, VAN, SCALE, SUB, clamp, damp } from './config.js';
-import { makeFigure, makeVan, MAT } from './world.js';
+import { makeFigure, makeVan, charInstance, MAT } from './world.js';
 
 /** Push a circle out of any axis-aligned box it has entered. */
 export function resolve(pos, radius, blockers) {
@@ -19,15 +19,23 @@ export function resolve(pos, radius, blockers) {
 
 export class Player {
   constructor(scene) {
-    this.mesh = makeFigure(SCALE.twif, MAT.charcoal);
-    // the one high-chroma accent in the frame: TWIF's eyes
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), MAT.active);
-    eye.position.set(0.07, SCALE.twif * 0.88, 0.14);
-    const eye2 = eye.clone(); eye2.position.x = -0.07;
-    this.mesh.add(eye, eye2);
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.9, 0.06), MAT.cream);
-    blade.position.set(0.3, SCALE.twif * 0.5, 0);
-    this.blade = blade; this.mesh.add(blade);
+    const gen = charInstance('twif');
+    this.generated = !!gen;
+    this.mesh = gen || makeFigure(SCALE.twif, MAT.charcoal);
+    this.joints = (gen && gen.userData.joints) || null;
+    if (gen) {
+      // the generated hero carries its own eyes and sword
+      this.blade = (gen.userData.parts && gen.userData.parts.sword)
+        || (this.joints && this.joints.rightHand) || null;
+    } else {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), MAT.active);
+      eye.position.set(0.07, SCALE.twif * 0.88, 0.14);
+      const eye2 = eye.clone(); eye2.position.x = -0.07;
+      this.mesh.add(eye, eye2);
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.9, 0.06), MAT.cream);
+      blade.position.set(0.3, SCALE.twif * 0.5, 0);
+      this.blade = blade; this.mesh.add(blade);
+    }
     scene.add(this.mesh);
 
     this.pos = new THREE.Vector3();
@@ -119,8 +127,16 @@ export class Player {
 
     // swing animation, and the hit window in the middle of it
     const swing = this.attackT > 0 ? Math.sin((1 - this.attackT / PLAYER.attackTime) * Math.PI) : 0;
-    this.blade.rotation.z = -swing * 2.2;
-    this.blade.position.x = 0.3 - swing * 0.35;
+    if (this.blade) {
+      if (this.generated) {
+        this.blade.rotation.z = -swing * 1.9;
+      } else {
+        this.blade.rotation.z = -swing * 2.2;
+        this.blade.position.x = 0.3 - swing * 0.35;
+      }
+    }
+    // whole-body commitment on the swing, so a hit reads even without a rig
+    this.mesh.rotation.x = -swing * 0.22;
     return this.attackT > 0 && this.attackT < PLAYER.attackTime * 0.7 && !this.didHit;
   }
 }
@@ -137,11 +153,20 @@ export class Enemy {
     this.kind = kind;
     this.S = kind === 'boss' ? BOSS : GRUNT;
     const h = kind === 'boss' ? SCALE.boss : SCALE.grunt;
-    this.mesh = makeFigure(h, kind === 'boss' ? MAT.cream : MAT.metal, kind === 'boss' ? 1.15 : 1.05);
-    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.05, 0.03),
-      new THREE.MeshStandardMaterial({ color: 0xBFE4FF, emissive: 0xBFE4FF, emissiveIntensity: 1.6 }));
-    visor.position.set(0, h * 0.87, h * 0.13);
-    this.mesh.add(visor); this.visor = visor;
+    const gen = charInstance(kind);
+    this.generated = !!gen;
+    this.mesh = gen || makeFigure(h, kind === 'boss' ? MAT.cream : MAT.metal, kind === 'boss' ? 1.15 : 1.05);
+    this.joints = (gen && gen.userData.joints) || null;
+    if (gen) {
+      const v = gen.userData.visor
+        || (gen.userData.joints && gen.userData.joints.helmetLight) || null;
+      this.visor = (v && v.isMesh && v.material) ? v : null;
+    } else {
+      const visor = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.05, 0.03),
+        new THREE.MeshStandardMaterial({ color: 0xBFE4FF, emissive: 0xBFE4FF, emissiveIntensity: 1.6 }));
+      visor.position.set(0, h * 0.87, h * 0.13);
+      this.mesh.add(visor); this.visor = visor;
+    }
     scene.add(this.mesh);
 
     this.pos = new THREE.Vector3(x, 0, z);
@@ -166,13 +191,13 @@ export class Enemy {
 
     if (this.state === 'windup') {
       this.t -= dt;
-      this.visor.material.emissiveIntensity = 3.2;
+      if (this.visor) this.visor.material.emissiveIntensity = 3.2;
       if (this.t <= 0) {
         if (d < this.S.attackRange * 1.25 && player.alive) dmg = this.S.attackDmg;
         this.state = 'idle'; this.cd = this.S.attackCooldown;
       }
     } else {
-      this.visor.material.emissiveIntensity = 1.6;
+      if (this.visor) this.visor.material.emissiveIntensity = 1.6;
       if (d < this.S.attackRange && this.cd <= 0) {
         this.state = 'windup'; this.t = this.S.attackWindup;
       } else if (d < this.S.aggroRange && d > this.S.attackRange * 0.85) {
@@ -185,6 +210,15 @@ export class Enemy {
 
     this.mesh.position.copy(this.pos);
     this.mesh.rotation.y = Math.atan2(player.pos.x - this.pos.x, player.pos.z - this.pos.z);
+    if (this.joints) {
+      this.walkT = (this.walkT || 0) + dt * (this.state === 'windup' ? 0 : 7);
+      const a = Math.sin(this.walkT) * 0.55;
+      const J = this.joints;
+      if (J.leftUpperLeg)  J.leftUpperLeg.rotation.x = a;
+      if (J.rightUpperLeg) J.rightUpperLeg.rotation.x = -a;
+      if (J.leftUpperArm)  J.leftUpperArm.rotation.x = -a * 0.6;
+      if (J.rightUpperArm) J.rightUpperArm.rotation.x = this.state === 'windup' ? -1.5 : a * 0.6;
+    }
     // telegraph: lean back on the windup so the swing is readable
     this.mesh.rotation.x = this.state === 'windup' ? -0.18 : 0;
     return dmg;
@@ -193,7 +227,9 @@ export class Enemy {
 
 export class Van {
   constructor(scene) {
-    this.mesh = makeVan();
+    const gen = charInstance('van');
+    this.mesh = gen || makeVan();
+    this.wheels = (gen && gen.userData.joints) || null;
     scene.add(this.mesh);
     this.pos = new THREE.Vector3(SUB.x, 0, SUB.vanZ);
     this.yaw = Math.PI;              // pointing down the road (-Z)
@@ -224,6 +260,12 @@ export class Van {
 
     this.mesh.position.copy(this.pos);
     this.mesh.rotation.y = this.yaw;
+    if (this.wheels) {
+      const spin = (this.speed / 0.34) * dt;
+      for (const k of ['wheelFL', 'wheelFR', 'wheelRL', 'wheelRR']) {
+        if (this.wheels[k]) this.wheels[k].rotation.x -= spin;
+      }
+    }
     return Math.abs(this.speed);
   }
 }
