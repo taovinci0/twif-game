@@ -462,7 +462,7 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
   function rebuild() {
     dirty = false;
     let n = 0, h = 0;
-    const capP = pools.count = 0;
+    pools.count = 0;
     for (const L of lamps) {
       if (!L.live) continue;
       if (n + 2 > O.capacity) break;
@@ -498,7 +498,6 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
         h++;
       } else L.halo_i = -1;
     }
-    void capP;
     pools.count = n;
     halos.count = h;
     pools.instanceMatrix.needsUpdate = true;

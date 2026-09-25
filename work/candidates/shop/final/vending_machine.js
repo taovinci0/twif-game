@@ -130,7 +130,7 @@ export default function (THREE) {
     box(0.045, 0.66, 0.34, dark, s * 0.462, 1.00, 0.06);     // access hatch
     for (const z of [-0.06, 0.18]) box(0.02, 0.05, 0.05, alloy, s * 0.489, 1.28, z);
     box(0.03, 0.07, 0.20, alloy, s * 0.485, 0.74, 0.14);     // lever handle
-    add(new THREE.CylinderGeometry(0.035, 0.035, 1.26, 6), alloy, s * 0.462, 0.86, -0.16);
+    add(new THREE.CylinderGeometry(0.032, 0.032, 1.26, 6), trim, s * 0.462, 0.86, -0.16);
     box(0.05, 0.16, 0.14, dark, s * 0.468, 1.57, -0.16);      // junction box
     for (const y of [0.35, 1.30]) box(0.055, 0.05, 0.10, alloy, s * 0.465, y, -0.16);
   }

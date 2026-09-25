@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ASSET } from '../assetlib.js';
-import { loadSignage, makeBanner, makePoster, makeFascia } from './signage.js';
+import { loadSignage, makeSign, makeBanner, makePoster, makeFascia } from './signage.js';
 import { SCALE, HUB, SUB } from './config.js';
 
 const M = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.82, ...opts });
@@ -119,6 +119,11 @@ export async function loadAssets(onProgress = () => {}) {
   await tryAsset('block',   './assets/shop_block.js',     { surfaces: true });
   await tryAsset('shrine',  './assets/const_shrine.js',   { surfaces: true });
   await tryAsset('dojo',    './assets/dojo_facade.js',    { surfaces: true });
+  await tryAsset('store',   './assets/convenience_store.js', { surfaces: true });
+  await tryAsset('node',    './assets/control_node.js',   { surfaces: true });
+  await tryAsset('corp',    './assets/corp_entrance.js',  { surfaces: true });
+  await tryAsset('crate',   './assets/street_crate.js',   { surfaces: true });
+  await tryAsset('barrier', './assets/traffic_barrier.js',{ surfaces: true });
   onProgress(1, 'ready');
 }
 
@@ -378,16 +383,26 @@ export function buildSubnet() {
   arena.position.set(X, -0.3, SUB.arenaZ); arena.receiveShadow = true;
   g.add(arena);
 
-  const tower = new THREE.Mesh(new THREE.BoxGeometry(10, 26, 10), MAT.cream);
   // Off-axis on purpose: centred here it walls off the return gate behind it
   // and the mission cannot be finished.
-  tower.position.set(X - 19, 13, SUB.arenaZ - 18); tower.castShadow = true;
-  g.add(tower);
+  const genCorp = charInstance('corp');
+  if (genCorp) {
+    genCorp.position.set(X - 19, 0, SUB.arenaZ - 18);
+    genCorp.rotation.y = Math.PI * 0.72;
+    g.add(genCorp);
+    const cl = new THREE.PointLight(0xBFE4FF, 10, 26, 2);
+    cl.position.set(X - 15, 4.2, SUB.arenaZ - 14); g.add(cl);
+  } else {
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(10, 26, 10), MAT.cream);
+    tower.position.set(X - 19, 13, SUB.arenaZ - 18); tower.castShadow = true;
+    g.add(tower);
+  }
   blockers.push({ x: X - 19, z: SUB.arenaZ - 18, hx: 5, hz: 5 });
 
   // the control node: the thing the mission is about
-  const node = new THREE.Mesh(new THREE.BoxGeometry(2.4, 6, 2.4), MAT.metal);
-  node.position.set(X, 3, SUB.arenaZ);
+  const genNode = charInstance('node');
+  const node = genNode || new THREE.Mesh(new THREE.BoxGeometry(2.4, 6, 2.4), MAT.metal);
+  node.position.set(X, genNode ? 0 : 3, SUB.arenaZ);
   g.add(node);
   blockers.push({ x: X, z: SUB.arenaZ, hx: 1.4, hz: 1.4 });
 
@@ -416,7 +431,27 @@ export function buildSubnet() {
   const FACE_R = -Math.PI / 2;   // right-hand buildings face -X
 
   // the shopfront that anchors the street
-  litSign(makeFascia('sign_taomart', 5.6, MAT.metal), X + 7.9, 3.5, SUB.streetZ0 - 12, FACE_R, 0xE66D32, 17);
+  const genStore = charInstance('store');
+  if (genStore) {
+    genStore.position.set(X + 11.4, 0, SUB.streetZ0 - 30);
+    genStore.rotation.y = FACE_R;
+    g.add(genStore);
+    // The store's fascia is 4.67:1 and the art is 3.04:1, so the sign is sized
+    // to the panel's HEIGHT and centred — stretched lettering is worse than a
+    // margin, and the fascia is a lightbox field so cream margins read right.
+    const sign = makeSign('sign_taomart', 1.42, { glow: 1.4 });
+    if (sign) {
+      sign.position.set(X + 8.36, 2.90, SUB.streetZ0 - 30 + 0.02);
+      sign.rotation.y = FACE_R;
+      g.add(sign);
+      const sl = new THREE.PointLight(0xE66D32, 11, 18, 2);
+      sl.position.set(X + 7.2, 2.6, SUB.streetZ0 - 30);
+      g.add(sl);
+    }
+    blockers.push({ x: X + 11.4, z: SUB.streetZ0 - 30, hx: 3.2, hz: 4.0 });
+  } else {
+    litSign(makeFascia('sign_taomart', 5.6, MAT.metal), X + 7.9, 3.5, SUB.streetZ0 - 12, FACE_R, 0xE66D32, 17);
+  }
 
   // hanging banners down both sides, alternating, breaking the silhouette
   const banners = ['banner_build', 'banner_build', 'banner_build'];
@@ -439,6 +474,76 @@ export function buildSubnet() {
     p.position.set(X + (left ? -7.88 : 7.88), 2.4, z);
     p.rotation.y = left ? FACE_L : FACE_R;
     g.add(p);
+  }
+
+  // ---- NEON. This is what the concept frames are actually made of: big
+  // saturated blades and boxes up the facades, throwing magenta and cyan onto
+  // grey buildings. Each panel is one draw call and each one lights what is
+  // around it, because a sign that glows without touching the wall behind it is
+  // the failure this whole domain is known for.
+  const NEON = [
+    0xFF2D8A, 0x6B3FD4, 0x9AFF43, 0xE66D32, 0xBFE4FF, 0xFF2D8A, 0x6B3FD4, 0xE66D32,
+  ];
+  const neonMat = (color) => new THREE.MeshStandardMaterial({
+    color, emissive: new THREE.Color(color), emissiveIntensity: 1.45,
+    roughness: 0.4, side: THREE.DoubleSide,
+  });
+
+  const addNeon = (w, h, x, y, z, ry, color, lightRange) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), neonMat(color));
+    m.position.set(x, y, z);
+    m.rotation.y = ry;
+    g.add(m);
+    if (lightRange) {
+      const pl = new THREE.PointLight(color, 7, lightRange, 2);
+      pl.position.set(x + Math.sin(ry) * 1.4, y, z + Math.cos(ry) * 1.4);
+      g.add(pl);
+    }
+    return m;
+  };
+
+  // tall vertical blade signs projecting from the facades, alternating sides,
+  // marching up the street — the single most recognisable shape in the frames
+  for (let i = 0; i < 11; i++) {
+    const z = SUB.streetZ0 - 6 - i * 10.5;
+    const left = i % 2 === 0;
+    const x = X + (left ? -8.3 : 8.3);
+    const ry = left ? FACE_L : FACE_R;
+    const color = NEON[i % NEON.length];
+    const h = 3.2 + (i % 3) * 1.4;
+    const y = 5.5 + (i % 4) * 1.9;
+    // the blade itself, edge-on to the street so it reads down the corridor
+    addNeon(0.9, h, x, y, z, ry + Math.PI / 2, color, i % 2 ? 16 : 0);
+    // a horizontal box on the wall beside it
+    addNeon(2.6, 0.62, x - Math.sin(ry) * 0.12, y - h / 2 - 0.8, z, ry, NEON[(i + 3) % NEON.length], 0);
+  }
+
+  // big billboards high on the blocks, using the poster art
+  const boards = ['poster_mog', 'poster_gym', 'poster_const', 'poster_dare'];
+  for (let i = 0; i < boards.length; i++) {
+    const z = SUB.streetZ0 - 26 - i * 27;
+    const left = i % 2 === 1;
+    const x = X + (left ? -8.25 : 8.25);
+    const ry = left ? FACE_L : FACE_R;
+    const b = makeSign(boards[i], 5.4, { glow: 1.25 });
+    if (b) {
+      b.position.set(x, 11.5, z);
+      b.rotation.y = ry;
+      g.add(b);
+      const pl = new THREE.PointLight(0xE7DFC9, 6, 20, 2);
+      pl.position.set(x + Math.sin(ry) * 2.2, 11.5, z + Math.cos(ry) * 2.2);
+      g.add(pl);
+    }
+  }
+
+  // low neon strips along the shopfront line, which is what puts colour on the
+  // wet ground rather than only on the walls
+  for (let i = 0; i < 14; i++) {
+    const z = SUB.streetZ0 - 4 - i * 8;
+    for (const side of [-1, 1]) {
+      addNeon(6.5, 0.28, X + side * 8.2, 3.05, z, side < 0 ? FACE_L : FACE_R,
+        NEON[(i + (side > 0 ? 2 : 5)) % NEON.length], 0);
+    }
   }
 
   // the dojo poster wall near Max, so the tutorial beat has somewhere to look

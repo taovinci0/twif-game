@@ -62,6 +62,10 @@ let blockers = hub.blockers;
 const input = new Input();
 const audio = new Audio();
 const player = new Player(scene);
+const heroRim = new THREE.PointLight(0xBFE4FF, 1.5, 4.2, 2);
+scene.add(heroRim);
+const heroKey = new THREE.PointLight(0xE7DFC9, 0.9, 3.4, 2);
+scene.add(heroKey);
 const van = new Van(scene);
 const mission = new Mission(scene, hub, sub, player, van);
 const beacon = makeBeacon();
@@ -287,6 +291,8 @@ function step(dt) {
   camera.lookAt(camAim);
 
   lighting.update(dt, target);
+  heroRim.position.set(target.x - Math.sin(camYaw) * 1.5, target.y + 2.2, target.z - Math.cos(camYaw) * 1.5);
+  heroKey.position.set(target.x + Math.sin(camYaw) * 1.1, target.y + 1.7, target.z + Math.cos(camYaw) * 1.1);
 
   // ---- wayfinding
   const wp = mission.waypoint();
