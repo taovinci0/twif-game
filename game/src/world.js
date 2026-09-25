@@ -120,6 +120,7 @@ export async function loadAssets(onProgress = () => {}) {
   await tryAsset('shrine',  './assets/const_shrine.js',   { surfaces: true });
   await tryAsset('dojo',    './assets/dojo_facade.js',    { surfaces: true });
   await tryAsset('store',   './assets/convenience_store.js', { surfaces: true });
+  await tryAsset('max',     './assets/max_sensei.js',    { surfaces: true });
   await tryAsset('node',    './assets/control_node.js',   { surfaces: true });
   await tryAsset('corp',    './assets/corp_entrance.js',  { surfaces: true });
   await tryAsset('crate',   './assets/street_crate.js',   { surfaces: true });
@@ -546,6 +547,31 @@ export function buildSubnet() {
     }
   }
 
+  // ---- drifting blossom: one draw call, and the only thing in frame that moves
+  const PETALS = 220;
+  const petalGeo = new THREE.PlaneGeometry(0.16, 0.11);
+  const petalMat = new THREE.MeshStandardMaterial({
+    color: 0xFFC2DE, emissive: new THREE.Color(0xFF9EC8), emissiveIntensity: 0.45,
+    roughness: 0.8, side: THREE.DoubleSide, transparent: true, opacity: 0.95,
+  });
+  const petals = new THREE.InstancedMesh(petalGeo, petalMat, PETALS);
+  petals.frustumCulled = false;
+  petals.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  const petalState = [];
+  for (let i = 0; i < PETALS; i++) {
+    petalState.push({
+      x: X + (Math.random() - 0.5) * 26,
+      y: Math.random() * 14,
+      z: SUB.streetZ0 - Math.random() * 140,
+      vy: 0.35 + Math.random() * 0.5,
+      sway: Math.random() * Math.PI * 2,
+      swaySpeed: 0.6 + Math.random() * 1.1,
+      spin: (Math.random() - 0.5) * 2.2,
+      rot: Math.random() * Math.PI,
+    });
+  }
+  g.add(petals);
+
   // the dojo poster wall near Max, so the tutorial beat has somewhere to look
   const gym = makePoster('poster_gym', 2.2, MAT.charcoal);
   gym.position.set(X - 7.88, 2.8, SUB.tutorialZ - 4);
@@ -556,6 +582,7 @@ export function buildSubnet() {
     group: g, blockers,
     returnGate: ret, returnPos: new THREE.Vector3(X, 0, SUB.returnZ),
     nodeMesh: node, conePos, signLights: lights,
+    petals, petalState,
   };
 }
 

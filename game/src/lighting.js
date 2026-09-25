@@ -425,9 +425,9 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
       intensity: (o.intensity ?? 1) * O.lampIntensity,
       range,
       // a pool is as wide as the light reaches, floored so a small source still grounds itself
-      pool: o.pool ?? clamp(range * 0.46, 1.8, 10),
+      pool: o.pool ?? clamp(range * 0.30, 1.4, 7),
       poolGain: (o.poolGain ?? 1) * O.poolIntensity,
-      streak: o.streak ?? 1.45,             // how far the wet smear runs, as a multiple of pool
+      streak: o.streak ?? 1.25,             // how far the wet smear runs, as a multiple of pool
       streakAxis: o.streakAxis ?? 'z',
       halo: o.halo ?? clamp(range * 0.17, 0.6, 3.0),
       haloGain: (o.haloGain ?? 1) * O.haloIntensity,
@@ -472,7 +472,7 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
       _s.set(L.pool * 2, L.pool * 2, 1);
       _m.compose(_v, FLAT, _s);
       pools.setMatrixAt(n, _m);
-      tint(_c, L.color, clamp(0.62 * L.intensity * L.poolGain, 0, 1.15));
+      tint(_c, L.color, clamp(0.38 * L.intensity * L.poolGain, 0, 0.85));
       pools.setColorAt(n, _c);
       n++;
 
@@ -483,7 +483,7 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
              along ? L.pool * 0.7 : L.pool * 2 * L.streak, 1);
       _m.compose(_v, FLAT, _s);
       pools.setMatrixAt(n, _m);
-      tint(_c, L.color, clamp(0.26 * L.intensity * L.poolGain, 0, 0.6));
+      tint(_c, L.color, clamp(0.14 * L.intensity * L.poolGain, 0, 0.4));
       pools.setColorAt(n, _c);
       n++;
 
@@ -492,7 +492,7 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
         _s.set(L.halo * 2, L.halo * 2, 1);
         _m.compose(_v, _q.identity(), _s);
         halos.setMatrixAt(h, _m);
-        tint(_c, L.color, clamp(1.75 * L.intensity * L.haloGain, 0, 3.0));
+        tint(_c, L.color, clamp(1.45 * L.intensity * L.haloGain, 0, 2.6));
         halos.setColorAt(h, _c);
         L.halo_i = h;
         h++;
@@ -585,9 +585,9 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
       // a 0.5 m lantern reaches a few metres; a 6 m sign box reaches further. Size sets range.
       const range = o.range ?? clamp(10 + k.r * 4.0, 14, 30);
       made.push(addLamp(k.p, k.m.emissive.getHex(), {
-        intensity: (o.intensity ?? 1) * clamp(0.5 + k.ei * 0.5, 0.4, 2.2),
+        intensity: (o.intensity ?? 1) * clamp(0.3 + k.ei * 0.35, 0.25, 1.4),
         range,
-        pool: o.pool ?? clamp(range * 0.46, 1.4, 10),
+        pool: o.pool ?? clamp(range * 0.26, 1.2, 5.5),
         halo: o.halo ?? clamp(k.r * 0.9, 0.35, 3.0),
         groundY: o.groundY ?? O.groundY,
         accent: o.accent,
@@ -657,8 +657,8 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
       n.receiveShadow = true;
     });
     for (const m of mats) {
-      m.roughness = o.roughness ?? 0.24;
-      m.metalness = o.metalness ?? 0.42;
+      m.roughness = o.roughness ?? 0.30;
+      m.metalness = o.metalness ?? 0.30;
       m.envMapIntensity = o.envMapIntensity ?? 1.5;
       m.needsUpdate = true;
     }
@@ -752,7 +752,7 @@ export function createLighting(THREE, renderer, scene, opts = {}) {
       slot.light.distance = L.range;
       // candela. A lantern 2.8 m up wants to put a readable pool on the road under it, and with
       // decay 2 that is intensity / 7.8 at the player's feet.
-      slot.light.intensity = 26 * L.intensity * slot.k;
+      slot.light.intensity = 18 * L.intensity * slot.k;
     }
 
     // ---- the hero

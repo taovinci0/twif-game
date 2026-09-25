@@ -30,7 +30,10 @@ const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 900);
 
 // Night lighting. Two colour temperatures made in the lights, a sky that cannot
 // disagree with them, and practicals that always light the ground beneath them.
-const lighting = createLighting(THREE, renderer, scene, { tier: 'auto' });
+const lighting = createLighting(THREE, renderer, scene, {
+  tier: 'auto',
+  tierOverrides: { pixelRatio: Math.min(globalThis.devicePixelRatio || 1, 2), post: true },
+});
 
 // ---------------------------------------------------------------- world
 // Generated modules load before anything is built, and before __READY__. An
@@ -73,6 +76,12 @@ scene.add(beacon);
 world.show('hub');
 player.teleport(HUB.x, HUB.z + 6, Math.PI);
 lighting.adopt(scene);
+// Wet ground. Without this the streaks are doing it alone and the road reads
+// flat — low roughness plus metalness plus the environment map is what makes
+// the street carry the neon back up at the camera.
+lighting.setGround(MAT.ground);
+lighting.setGround(MAT.road);
+lighting.setGround(MAT.stone, { roughness: 0.45, metalness: 0.2, envMapIntensity: 1.1 });
 
 // ---------------------------------------------------------------- ui
 const el = (id) => document.getElementById(id);
@@ -114,6 +123,8 @@ window.__GAME__ = {
   camYaw: 0, nearest: null, target: null,
 };
 let swings = 0;
+const _pm = new THREE.Matrix4(), _pq = new THREE.Quaternion(),
+      _pp = new THREE.Vector3(), _ps = new THREE.Vector3(1, 1, 1), _pe = new THREE.Euler();
 let prevAttackT = 0;
 let audioStage = null;
 
@@ -160,6 +171,7 @@ function resize() {
   camera.aspect = w / h;
   camera.fov = w / h < 0.85 ? 70 : 62;      // wider on a phone in portrait
   camera.updateProjectionMatrix();
+  if (lighting && lighting.resize) lighting.resize(w, h);
 }
 addEventListener('resize', resize);
 resize();
@@ -293,6 +305,24 @@ function step(dt) {
   lighting.update(dt, target);
   heroRim.position.set(target.x - Math.sin(camYaw) * 1.5, target.y + 2.2, target.z - Math.cos(camYaw) * 1.5);
   heroKey.position.set(target.x + Math.sin(camYaw) * 1.1, target.y + 1.7, target.z + Math.cos(camYaw) * 1.1);
+
+  // ---- blossom drift: the only thing in frame that moves
+  if (sub.petals) {
+    const P = sub.petalState, im = sub.petals;
+    for (let i = 0; i < P.length; i++) {
+      const p = P[i];
+      p.y -= p.vy * dt;
+      p.sway += p.swaySpeed * dt;
+      p.rot += p.spin * dt;
+      if (p.y < -0.2) p.y = 13 + Math.random() * 3;
+      _pp.set(p.x + Math.sin(p.sway) * 0.9, p.y, p.z + Math.cos(p.sway * 0.7) * 0.5);
+      _pe.set(p.rot * 0.6, p.rot, p.sway * 0.5);
+      _pq.setFromEuler(_pe);
+      _pm.compose(_pp, _pq, _ps);
+      im.setMatrixAt(i, _pm);
+    }
+    im.instanceMatrix.needsUpdate = true;
+  }
 
   // ---- wayfinding
   const wp = mission.waypoint();

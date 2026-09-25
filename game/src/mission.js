@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { SUB, HUB, SCALE, PLAYER } from './config.js';
 import { Enemy } from './entities.js';
-import { makeFigure, litGate, MAT } from './world.js';
+import { makeFigure, charInstance, litGate, MAT } from './world.js';
 
 export const STAGES = [
   'hub', 'arrive', 'tutorial', 'street', 'van', 'drive', 'arena', 'artefact', 'return', 'complete',
@@ -24,7 +24,7 @@ export class Mission {
     this.t = 0;
     this.done = false;
 
-    this.max = makeFigure(SCALE.npc, MAT.timber);
+    this.max = charInstance('max') || makeFigure(SCALE.npc, MAT.timber);
     this.max.position.set(SUB.x, 0, SUB.tutorialZ);
     this.max.visible = false;
     scene.add(this.max);
