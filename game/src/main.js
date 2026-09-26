@@ -7,13 +7,13 @@
 // second; and `pos` is in metres, because the harness drives each leg until the
 // player has covered a distance rather than for a wall-clock duration.
 import * as THREE from 'three';
-import { CAM, MAX_DT, HUB, SUB, PLAYER, clamp, damp } from './config.js';
-import { Input } from './input.js';
-import { buildHub, buildSubnet, makeBeacon, loadAssets, MAT } from './world.js';
-import { Player, Van } from './entities.js';
-import { Mission } from './mission.js';
-import { Audio } from './audio.js';
-import { createLighting } from './lighting.js';
+import { CAM, MAX_DT, HUB, SUB, PLAYER, clamp, damp } from './config.js?v=202609260010';
+import { Input } from './input.js?v=202609260010';
+import { buildHub, buildSubnet, makeBeacon, loadAssets, MAT } from './world.js?v=202609260010';
+import { Player, Van } from './entities.js?v=202609260010';
+import { Mission } from './mission.js?v=202609260010';
+import { Audio } from './audio.js?v=202609260010';
+import { createLighting } from './lighting.js?v=202609260010';
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });

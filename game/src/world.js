@@ -3,9 +3,9 @@
 // scales in STYLE_LOCK.md so the replacement drops straight in.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { ASSET } from '../assetlib.js';
-import { loadSignage, makeSign, makeBanner, makePoster, makeFascia } from './signage.js';
-import { SCALE, HUB, SUB } from './config.js';
+import { ASSET } from '../assetlib.js?v=202609260010';
+import { loadSignage, makeSign, makeBanner, makePoster, makeFascia } from './signage.js?v=202609260010';
+import { SCALE, HUB, SUB } from './config.js?v=202609260010';
 
 const M = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.82, ...opts });
 

@@ -1,8 +1,8 @@
 // Player, enemies and the van. Greybox behaviour — the shapes are placeholders,
 // the mechanics are not: this is what the first milestone has to prove works.
 import * as THREE from 'three';
-import { PLAYER, GRUNT, BOSS, VAN, SCALE, SUB, clamp, damp } from './config.js';
-import { makeFigure, makeVan, charInstance, MAT } from './world.js';
+import { PLAYER, GRUNT, BOSS, VAN, SCALE, SUB, clamp, damp } from './config.js?v=202609260010';
+import { makeFigure, makeVan, charInstance, MAT } from './world.js?v=202609260010';
 
 /** Push a circle out of any axis-aligned box it has entered. */
 export function resolve(pos, radius, blockers) {

@@ -1,7 +1,7 @@
 // Keyboard + touch, from the first build. Everything here is driven by REAL
 // pointer/key/touch events — a gate must be able to exercise the game the way a
 // player does, never through a debug hook.
-import { clamp } from './config.js';
+import { clamp } from './config.js?v=202609260010';
 
 export class Input {
   constructor() {
