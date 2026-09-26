@@ -3,9 +3,9 @@
 // scales in STYLE_LOCK.md so the replacement drops straight in.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { ASSET } from '../assetlib.js?v=202609260010';
-import { loadSignage, makeSign, makeBanner, makePoster, makeFascia } from './signage.js?v=202609260010';
-import { SCALE, HUB, SUB } from './config.js?v=202609260010';
+import { ASSET } from '../assetlib.js?v=202609260045';
+import { loadSignage, makeSign, makeBanner, makePoster, makeFascia } from './signage.js?v=202609260045';
+import { SCALE, HUB, SUB } from './config.js?v=202609260045';
 
 const M = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.82, ...opts });
 
@@ -490,17 +490,36 @@ export function buildSubnet() {
     roughness: 0.4, side: THREE.DoubleSide,
   });
 
+  // Batched: every panel of one colour shares an InstancedMesh, so the whole
+  // neon set is 8 draw calls rather than ~50. A unit plane scaled per instance
+  // gives each panel its own size.
+  const neonBatch = new Map();
   const addNeon = (w, h, x, y, z, ry, color, lightRange) => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), neonMat(color));
-    m.position.set(x, y, z);
-    m.rotation.y = ry;
-    g.add(m);
+    if (!neonBatch.has(color)) neonBatch.set(color, []);
+    neonBatch.get(color).push({ w, h, x, y, z, ry });
     if (lightRange) {
       const pl = new THREE.PointLight(color, 7, lightRange, 2);
       pl.position.set(x + Math.sin(ry) * 1.4, y, z + Math.cos(ry) * 1.4);
       g.add(pl);
     }
-    return m;
+  };
+  const flushNeon = () => {
+    const unit = new THREE.PlaneGeometry(1, 1);
+    const mm = new THREE.Matrix4(), qq = new THREE.Quaternion(),
+          pp = new THREE.Vector3(), ss = new THREE.Vector3(), ee = new THREE.Euler();
+    for (const [color, list] of neonBatch) {
+      const im = new THREE.InstancedMesh(unit, neonMat(color), list.length);
+      im.frustumCulled = false;
+      list.forEach((p, i) => {
+        pp.set(p.x, p.y, p.z);
+        ee.set(0, p.ry, 0); qq.setFromEuler(ee);
+        ss.set(p.w, p.h, 1);
+        mm.compose(pp, qq, ss);
+        im.setMatrixAt(i, mm);
+      });
+      im.instanceMatrix.needsUpdate = true;
+      g.add(im);
+    }
   };
 
   // tall vertical blade signs projecting from the facades, alternating sides,
@@ -546,6 +565,8 @@ export function buildSubnet() {
         NEON[(i + (side > 0 ? 2 : 5)) % NEON.length], 0);
     }
   }
+
+  flushNeon();
 
   // ---- drifting blossom: one draw call, and the only thing in frame that moves
   const PETALS = 220;

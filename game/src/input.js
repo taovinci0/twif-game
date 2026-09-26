@@ -1,7 +1,7 @@
 // Keyboard + touch, from the first build. Everything here is driven by REAL
 // pointer/key/touch events — a gate must be able to exercise the game the way a
 // player does, never through a debug hook.
-import { clamp } from './config.js?v=202609260010';
+import { clamp } from './config.js?v=202609260045';
 
 export class Input {
   constructor() {
@@ -27,7 +27,10 @@ export class Input {
       this._keys.add(e.code);
       if (e.code === 'KeyJ' || e.code === 'KeyF') this._edge.attack = true;
       if (e.code === 'KeyE' || e.code === 'Enter') this._edge.action = true;
-      if (e.code === 'Space' || e.code === 'ShiftLeft') this._edge.dodge = true;
+      // NOT Shift: Shift is the run modifier (see poll()), so binding dodge to it
+      // fired a 15 m/s burst every time the player held sprint -- TWIF lurching
+      // forward for no reason the player could see.
+      if (e.code === 'Space' || e.code === 'KeyK') this._edge.dodge = true;
       if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
     });
     addEventListener('keyup', (e) => this._keys.delete(e.code));

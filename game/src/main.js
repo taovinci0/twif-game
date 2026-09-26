@@ -7,13 +7,13 @@
 // second; and `pos` is in metres, because the harness drives each leg until the
 // player has covered a distance rather than for a wall-clock duration.
 import * as THREE from 'three';
-import { CAM, MAX_DT, HUB, SUB, PLAYER, clamp, damp } from './config.js?v=202609260010';
-import { Input } from './input.js?v=202609260010';
-import { buildHub, buildSubnet, makeBeacon, loadAssets, MAT } from './world.js?v=202609260010';
-import { Player, Van } from './entities.js?v=202609260010';
-import { Mission } from './mission.js?v=202609260010';
-import { Audio } from './audio.js?v=202609260010';
-import { createLighting } from './lighting.js?v=202609260010';
+import { CAM, MAX_DT, HUB, SUB, PLAYER, clamp, damp } from './config.js?v=202609260045';
+import { Input } from './input.js?v=202609260045';
+import { buildHub, buildSubnet, makeBeacon, loadAssets, MAT } from './world.js?v=202609260045';
+import { Player, Van } from './entities.js?v=202609260045';
+import { Mission } from './mission.js?v=202609260045';
+import { Audio } from './audio.js?v=202609260045';
+import { createLighting } from './lighting.js?v=202609260045';
 
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -32,7 +32,9 @@ const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 900);
 // disagree with them, and practicals that always light the ground beneath them.
 const lighting = createLighting(THREE, renderer, scene, {
   tier: 'auto',
-  tierOverrides: { pixelRatio: Math.min(globalThis.devicePixelRatio || 1, 2), post: true },
+  // pixelRatio only: forcing `post` on would make the expensive path mandatory
+  // on the phone tier, which is the opposite of what the tier system is for.
+  tierOverrides: { pixelRatio: Math.min(globalThis.devicePixelRatio || 1, 2) },
 });
 
 // ---------------------------------------------------------------- world

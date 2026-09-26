@@ -1,9 +1,9 @@
 // The mission. Every transition is a named checkpoint, recorded and exposed on
 // __GAME__, because transitions are the part of this game no generic gate reaches.
 import * as THREE from 'three';
-import { SUB, HUB, SCALE, PLAYER } from './config.js?v=202609260010';
-import { Enemy } from './entities.js?v=202609260010';
-import { makeFigure, charInstance, litGate, MAT } from './world.js?v=202609260010';
+import { SUB, HUB, SCALE, PLAYER } from './config.js?v=202609260045';
+import { Enemy } from './entities.js?v=202609260045';
+import { makeFigure, charInstance, litGate, MAT } from './world.js?v=202609260045';
 
 export const STAGES = [
   'hub', 'arrive', 'tutorial', 'street', 'van', 'drive', 'arena', 'artefact', 'return', 'complete',

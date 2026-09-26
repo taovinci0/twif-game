@@ -1,7 +1,7 @@
 /**
  * NIGHT LIGHTING for TWIF: Subnet One.
  *
- *     import { createLighting } from './lighting.js?v=202609260010';
+ *     import { createLighting } from './lighting.js?v=202609260045';
  *     const lighting = createLighting(THREE, renderer, scene, { tier: 'auto' });
  *     lighting.adopt(scene);                  // after the level is built
  *     lighting.update(dt, player.pos);        // once a frame
